@@ -29,7 +29,6 @@ private:
 
   InitManager initmanager_;
 };
-}
 
 class SecretManagerImplTest : public testing::Test {
 };
