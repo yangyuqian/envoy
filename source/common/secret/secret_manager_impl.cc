@@ -44,7 +44,6 @@ std::string SecretManagerImpl::addOrUpdateSdsService(
   if (sds_apis_.find(sds_apis_key) != sds_apis_.end()) {
     return hash;
   }
-
   sds_apis_[sds_apis_key] = std::make_unique<SdsApi>(server_, sds_config_source, hash, config_name);
 
   return hash;
