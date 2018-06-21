@@ -65,7 +65,7 @@ Network::TransportSocketFactoryPtr DownstreamSslSocketFactory::createTransportSo
 
   return std::move(tsf);
 }
-}
+} // namespace SslTransport
 
 ProtobufTypes::MessagePtr DownstreamSslSocketFactory::createEmptyConfigProto() {
   return std::make_unique<envoy::api::v2::auth::DownstreamTlsContext>();
@@ -75,7 +75,7 @@ static Registry::RegisterFactory<DownstreamSslSocketFactory,
                                  Server::Configuration::DownstreamTransportSocketConfigFactory>
     downstream_registered_;
 
-} // namespace SslTransport
 } // namespace TransportSockets
 } // namespace Extensions
+} // namespace Envoy
 } // namespace Envoy

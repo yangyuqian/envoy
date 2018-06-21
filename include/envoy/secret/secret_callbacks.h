@@ -12,7 +12,7 @@ namespace Secret {
  * Callbacks invoked by a secret manager.
  */
 class SecretCallbacks {
- public:
+public:
   virtual ~SecretCallbacks() {}
 
   virtual void onAddOrUpdateSecret() PURE;

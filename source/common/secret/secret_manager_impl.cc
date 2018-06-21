@@ -13,7 +13,8 @@ void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
   switch (secret.type_case()) {
   case envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate: {
     std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
-    auto tls_certificate_secret = std::make_shared<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
+    auto tls_certificate_secret =
+        std::make_shared<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
     tls_certificate_secrets_[config_source_hash][secret.name()] = tls_certificate_secret;
 
     if (config_source_hash.empty()) {
