@@ -109,7 +109,8 @@ public:
       new NiceMock<Network::MockDnsResolver>};
   NiceMock<Runtime::MockLoader> runtime_;
   NiceMock<Runtime::MockRandomGenerator> random_;
-  Ssl::ContextManagerImpl ssl_context_manager_{runtime_};
+  Server::MockInstance server_;
+  Ssl::ContextManagerImpl ssl_context_manager_{runtime_, server_.secretManager()};
   NiceMock<Event::MockDispatcher> dispatcher_;
   LocalInfo::MockLocalInfo local_info_;
   Secret::MockSecretManager secret_manager_;
