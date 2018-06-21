@@ -21,7 +21,7 @@ class SslSocket : public Network::TransportSocket,
                   public Connection,
                   protected Logger::Loggable<Logger::Id::connection> {
 public:
-  SslSocket(Context& ctx, InitialState state);
+  SslSocket(ContextImplSharedPtr ctx, InitialState state);
 
   // Ssl::Connection
   bool peerCertificatePresented() const override;
@@ -56,7 +56,7 @@ private:
   std::vector<std::string> getDnsSansFromCertificate(X509* cert);
 
   Network::TransportSocketCallbacks* callbacks_{};
-  ContextImpl& ctx_;
+  ContextImplSharedPtr ctx_;
   bssl::UniquePtr<SSL> ssl_;
   bool handshake_complete_{};
   bool shutdown_sent_{};
@@ -78,7 +78,7 @@ public:
   void onAddOrUpdateSecret() override;
 
 private:
-  ClientContextPtr ssl_ctx_;
+  ClientContextSharedPtr ssl_ctx_;
   ClientContextConfigPtr config_;
   Ssl::ContextManager& manager_;
   Stats::Scope& stats_scope_;
@@ -99,7 +99,7 @@ public:
   void onAddOrUpdateSecret() override;
 
 private:
-  ServerContextPtr ssl_ctx_;
+  ServerContextSharedPtr ssl_ctx_;
   ServerContextConfigPtr config_;
   Ssl::ContextManager& manager_;
   Stats::Scope& stats_scope_;

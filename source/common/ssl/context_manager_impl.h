@@ -32,16 +32,16 @@ public:
   void releaseContext(Context* context);
 
   // Ssl::ContextManager
-  Ssl::ClientContextPtr createSslClientContext(Stats::Scope& scope,
+  Ssl::ClientContextSharedPtr createSslClientContext(Stats::Scope& scope,
                                                const ClientContextConfig& config) override;
-  Ssl::ClientContextPtr updateSslClientContext(const Ssl::ClientContextPtr& context,
+  Ssl::ClientContextSharedPtr updateSslClientContext(const Ssl::ClientContextPtr& context,
                                                Stats::Scope& scope,
                                                const ClientContextConfig& config) override;
 
-  Ssl::ServerContextPtr
+  Ssl::ServerContextSharedPtr
   createSslServerContext(Stats::Scope& scope, const ServerContextConfig& config,
                          const std::vector<std::string>& server_names) override;
-  virtual ServerContextPtr
+  ServerContextSharedPtr
   updateSslServerContext(const ServerContextPtr& context, Stats::Scope& scope,
                          const ServerContextConfig& config,
                          const std::vector<std::string>& server_names) override;
