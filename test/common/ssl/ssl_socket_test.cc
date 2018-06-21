@@ -57,8 +57,8 @@ void testUtil(const std::string& client_ctx_json, const std::string& server_ctx_
   Json::ObjectSharedPtr server_ctx_loader = TestEnvironment::jsonLoadFromString(server_ctx_json);
   ContextManagerImpl manager(runtime, server.secretManager());
   Ssl::ServerSslSocketFactory server_ssl_socket_factory(
-        std::make_unique<ServerContextConfigImpl>(*server_ctx_loader, server.secretManager()),
-        manager, stats_store, std::vector<std::string>{});
+      std::make_unique<ServerContextConfigImpl>(*server_ctx_loader, server.secretManager()),
+      manager, stats_store, std::vector<std::string>{});
 
   Event::DispatcherImpl dispatcher;
   Network::TcpListenSocket socket(Network::Test::getCanonicalLoopbackAddress(version), nullptr,
@@ -69,8 +69,8 @@ void testUtil(const std::string& client_ctx_json, const std::string& server_ctx_
 
   Json::ObjectSharedPtr client_ctx_loader = TestEnvironment::jsonLoadFromString(client_ctx_json);
   Ssl::ClientSslSocketFactory client_ssl_socket_factory(
-        std::make_unique<ClientContextConfigImpl>(*client_ctx_loader, server.secretManager()),
-        manager, stats_store);
+      std::make_unique<ClientContextConfigImpl>(*client_ctx_loader, server.secretManager()),
+      manager, stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher.createClientConnection(
       socket.localAddress(), Network::Address::InstanceConstSharedPtr(),
       client_ssl_socket_factory.createTransportSocket(), nullptr);
@@ -156,9 +156,9 @@ const std::string testUtilV2(const envoy::api::v2::Listener& server_proto,
   std::vector<std::string> server_names(filter_chain.filter_chain_match().server_names().begin(),
                                         filter_chain.filter_chain_match().server_names().end());
   Ssl::ServerSslSocketFactory server_ssl_socket_factory(
-        std::make_unique<Ssl::ServerContextConfigImpl>(filter_chain.tls_context(),
-                                                       server.secretManager()),
-        manager, stats_store, server_names);
+      std::make_unique<Ssl::ServerContextConfigImpl>(filter_chain.tls_context(),
+                                                     server.secretManager()),
+      manager, stats_store, server_names);
 
   Event::DispatcherImpl dispatcher;
   Network::TcpListenSocket socket(Network::Test::getCanonicalLoopbackAddress(version), nullptr,
@@ -1601,7 +1601,7 @@ TEST_P(SslSocketTest, HalfClose) {
   )EOF";
 
   Json::ObjectSharedPtr client_ctx_loader = TestEnvironment::jsonLoadFromString(client_ctx_json);
- ClientSslSocketFactory client_ssl_socket_factory(
+  ClientSslSocketFactory client_ssl_socket_factory(
       std::make_unique<ClientContextConfigImpl>(*client_ctx_loader, server_.secretManager()),
       manager, stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher.createClientConnection(
@@ -1749,10 +1749,10 @@ void testTicketSessionResumption(const std::string& server_ctx_json1,
   Json::ObjectSharedPtr server_ctx_loader1 = TestEnvironment::jsonLoadFromString(server_ctx_json1);
   Json::ObjectSharedPtr server_ctx_loader2 = TestEnvironment::jsonLoadFromString(server_ctx_json2);
   Ssl::ServerSslSocketFactory server_ssl_socket_factory1(
-  std::make_unique<ServerContextConfigImpl>(*server_ctx_loader1, server.secretManager()),
+      std::make_unique<ServerContextConfigImpl>(*server_ctx_loader1, server.secretManager()),
       manager, stats_store, server_names1);
   Ssl::ServerSslSocketFactory server_ssl_socket_factory2(
-  std::make_unique<ServerContextConfigImpl>(*server_ctx_loader2, server.secretManager()),
+      std::make_unique<ServerContextConfigImpl>(*server_ctx_loader2, server.secretManager()),
       manager, stats_store, server_names2);
 
   Event::DispatcherImpl dispatcher;
@@ -1767,7 +1767,7 @@ void testTicketSessionResumption(const std::string& server_ctx_json1,
 
   Json::ObjectSharedPtr client_ctx_loader = TestEnvironment::jsonLoadFromString(client_ctx_json);
   ClientSslSocketFactory ssl_socket_factory(
-  std::make_unique<ClientContextConfigImpl>(*client_ctx_loader, server.secretManager()),
+      std::make_unique<ClientContextConfigImpl>(*client_ctx_loader, server.secretManager()),
       manager, stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher.createClientConnection(
       socket1.localAddress(), Network::Address::InstanceConstSharedPtr(),

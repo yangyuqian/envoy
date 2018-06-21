@@ -33,7 +33,7 @@ private:
 };
 
 class MockSecretCallback : public SecretCallbacks {
- public:
+public:
   MOCK_METHOD0(onAddOrUpdateSecret, void());
 };
 

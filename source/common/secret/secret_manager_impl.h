@@ -19,8 +19,8 @@ public:
 
   void addOrUpdateSecret(const std::string& config_source_hash,
                          const envoy::api::v2::auth::Secret& secret) override;
-  const Ssl::TlsCertificateConfigSharedPtr findTlsCertificate(const std::string& config_source_hash,
-                                                              const std::string& name) const override;
+  const Ssl::TlsCertificateConfigSharedPtr
+  findTlsCertificate(const std::string& config_source_hash, const std::string& name) const override;
 
   std::string addOrUpdateSdsService(const envoy::api::v2::core::ConfigSource& config_source,
                                     std::string config_name) override;
@@ -38,7 +38,8 @@ private:
 
   // Manages pairs of name and Ssl::TlsCertificateConfig grouped by SDS config source hash.
   // If SDS config source hash is empty, it is a static secret.
-  std::unordered_map<std::string, std::unordered_map<std::string, Ssl::TlsCertificateConfigSharedPtr>>
+  std::unordered_map<std::string,
+                     std::unordered_map<std::string, Ssl::TlsCertificateConfigSharedPtr>>
       tls_certificate_secrets_;
   mutable std::shared_timed_mutex tls_certificate_secrets_mutex_;
 

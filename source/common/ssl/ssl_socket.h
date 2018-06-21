@@ -69,8 +69,8 @@ class ClientSslSocketFactory : public Network::TransportSocketFactory,
                                public Secret::SecretCallbacks,
                                Logger::Loggable<Logger::Id::config> {
 public:
-  ClientSslSocketFactory(const ClientContextConfigPtr config,
-                         Ssl::ContextManager& manager, Stats::Scope& stats_scope);
+  ClientSslSocketFactory(const ClientContextConfigPtr config, Ssl::ContextManager& manager,
+                         Stats::Scope& stats_scope);
   Network::TransportSocketPtr createTransportSocket() const override;
   bool implementsSecureTransport() const override;
 
@@ -90,9 +90,8 @@ class ServerSslSocketFactory : public Network::TransportSocketFactory,
                                public Secret::SecretCallbacks,
                                Logger::Loggable<Logger::Id::config> {
 public:
-  ServerSslSocketFactory(const ServerContextConfigPtr config,
-                         Ssl::ContextManager& manager, Stats::Scope& stats_scope,
-                         const std::vector<std::string>& server_names);
+  ServerSslSocketFactory(const ServerContextConfigPtr config, Ssl::ContextManager& manager,
+                         Stats::Scope& stats_scope, const std::vector<std::string>& server_names);
   Network::TransportSocketPtr createTransportSocket() const override;
   bool implementsSecureTransport() const override;
 
