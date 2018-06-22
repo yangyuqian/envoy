@@ -481,7 +481,7 @@ public:
 
   bool use_client_cert_{};
   Server::MockInstance server_;
-  Ssl::ContextManagerImpl context_manager_{runtime_};
+  Ssl::ContextManagerImpl context_manager_{runtime_, server_.secretManager()};
 };
 
 } // namespace

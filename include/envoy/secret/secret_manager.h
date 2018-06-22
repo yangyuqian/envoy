@@ -53,7 +53,7 @@ public:
    */
   virtual void registerTlsCertificateConfigCallbacks(const std::string& config_source_hash,
                                                      const std::string& secret_name,
-                                                     SecretCallbacks& callback) PURE;
+                                                     SecretCallbacks* callback) PURE;
 
   /**
    * Unregister callback function.

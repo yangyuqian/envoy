@@ -5,7 +5,7 @@
 
 #include "test/integration/integration.h"
 #include "test/mocks/runtime/mocks.h"
-#include "test/mocks/secret/mocks.h"
+#include "test/mocks/server/mocks.h"
 
 #include "gtest/gtest.h"
 

@@ -32,6 +32,20 @@ public:
     return ServerContextSharedPtr{createSslServerContext_(scope, config, server_names)};
   }
 
+  ClientContextSharedPtr updateSslClientContext(const ClientContextSharedPtr, Stats::Scope& scope,
+                                                const ClientContextConfig& config) override {
+    return ClientContextSharedPtr{createSslClientContext_(scope, config)};
+  }
+
+  ServerContextSharedPtr
+  updateSslServerContext(const ServerContextSharedPtr, Stats::Scope& scope,
+                         const ServerContextConfig& config,
+                         const std::vector<std::string>& server_names) override {
+    return ServerContextSharedPtr{createSslServerContext_(scope, config, server_names)};
+  }
+
+  Secret::SecretManager& secretManager() override { return secret_manager_; }
+
   MOCK_METHOD2(createSslClientContext_,
                ClientContext*(Stats::Scope& scope, const ClientContextConfig& config));
   MOCK_METHOD3(createSslServerContext_,
@@ -39,6 +53,8 @@ public:
                               const std::vector<std::string>& server_names));
   MOCK_CONST_METHOD0(daysUntilFirstCertExpires, size_t());
   MOCK_METHOD1(iterateContexts, void(std::function<void(const Context&)> callback));
+
+  testing::NiceMock<Secret::MockSecretManager> secret_manager_;
 };
 
 class MockConnection : public Connection {

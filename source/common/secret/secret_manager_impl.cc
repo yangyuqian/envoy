@@ -79,7 +79,7 @@ std::string SecretManagerImpl::addOrUpdateSdsService(
 
 void SecretManagerImpl::registerTlsCertificateConfigCallbacks(const std::string& config_source_hash,
                                                               const std::string& secret_name,
-                                                              SecretCallbacks& callback) {
+                                                              SecretCallbacks* callback) {
   auto secret = findTlsCertificate(config_source_hash, secret_name);
   if (!secret) {
     return;
@@ -90,17 +90,17 @@ void SecretManagerImpl::registerTlsCertificateConfigCallbacks(const std::string&
   auto config_source_it = tls_certificate_secret_update_callbacks_.find(config_source_hash);
   if (config_source_it == tls_certificate_secret_update_callbacks_.end()) {
     tls_certificate_secret_update_callbacks_[config_source_hash][secret_name] = {secret,
-                                                                                 {&callback}};
+                                                                                 {callback}};
     return;
   }
 
   auto name_it = config_source_it->second.find(secret_name);
   if (name_it == config_source_it->second.end()) {
-    config_source_it->second[secret_name] = {secret, {&callback}};
+    config_source_it->second[secret_name] = {secret, {callback}};
     return;
   }
 
-  name_it->second.second.push_back(&callback);
+  name_it->second.second.push_back(callback);
 }
 
 void SecretManagerImpl::unRegisterTlsCertificateConfigCallbacks(

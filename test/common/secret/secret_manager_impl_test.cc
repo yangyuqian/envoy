@@ -3,6 +3,7 @@
 #include "envoy/api/v2/auth/cert.pb.h"
 #include "envoy/common/exception.h"
 
+#include "common/event/dispatcher_impl.h"
 #include "common/secret/secret_manager_impl.h"
 
 #include "test/mocks/server/mocks.h"
@@ -47,12 +48,12 @@ TEST_F(SecretManagerImplTest, SecretLoadSuccess) {
 name: "abc.com"
 tls_certificate:
   certificate_chain:
-    filename: "test/common/ssl/test_data/selfsigned_cert.pem"
+    filename: "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem"
   private_key:
-    filename: "test/common/ssl/test_data/selfsigned_key.pem"
+    filename: "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem"
 )EOF";
 
-  MessageUtil::loadFromYaml(yaml, secret_config);
+  MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), secret_config);
 
   Server::MockInstance server;
 
@@ -80,12 +81,12 @@ TEST_F(SecretManagerImplTest, SdsDynamicSecretUpdateSuccess) {
   name: "abc.com"
   tls_certificate:
     certificate_chain:
-      filename: "test/common/ssl/test_data/selfsigned_cert.pem"
+      filename: "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem"
     private_key:
-      filename: "test/common/ssl/test_data/selfsigned_key.pem"
+      filename: "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem"
   )EOF";
 
-  MessageUtil::loadFromYaml(yaml, secret_config);
+  MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), secret_config);
 
   MockServer server;
 
@@ -96,7 +97,7 @@ TEST_F(SecretManagerImplTest, SdsDynamicSecretUpdateSuccess) {
       server.secretManager().addOrUpdateSdsService(config_source, "abc_config");
 
   server.secretManager().registerTlsCertificateConfigCallbacks(config_source_hash, "abc.com",
-                                                               *secret_callback.get());
+                                                               secret_callback.get());
   server.secretManager().addOrUpdateSecret(config_source_hash, secret_config);
 
   server.dispatcher().run(Event::Dispatcher::RunType::Block);

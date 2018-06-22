@@ -22,6 +22,14 @@ public:
   MOCK_METHOD2(addOrUpdateSdsService,
                std::string(const envoy::api::v2::core::ConfigSource& config_source,
                            std::string config_name));
+
+  MOCK_METHOD3(registerTlsCertificateConfigCallbacks,
+               void(const std::string& config_source_hash, const std::string& secret_name,
+                    SecretCallbacks* callback));
+
+  MOCK_METHOD3(unRegisterTlsCertificateConfigCallbacks,
+               void(const std::string& config_source_hash, const std::string& secret_name,
+                    SecretCallbacks* callback));
 };
 
 } // namespace Secret
