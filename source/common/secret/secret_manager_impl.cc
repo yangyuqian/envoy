@@ -1,5 +1,7 @@
 #include "common/secret/secret_manager_impl.h"
 
+#include <algorithm>
+
 #include "envoy/common/exception.h"
 
 #include "common/secret/secret_manager_util.h"
@@ -13,14 +15,16 @@ void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
   switch (secret.type_case()) {
   case envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate: {
     std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
-    auto tls_certificate_secret =
-        std::make_shared<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
-    tls_certificate_secrets_[config_source_hash][secret.name()] = tls_certificate_secret;
+    tls_certificate_secrets_[config_source_hash][secret.name()] =
+        std::make_unique<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
+    ;
 
     if (config_source_hash.empty()) {
       return;
     }
 
+    const auto tls_certificate_secret =
+        tls_certificate_secrets_[config_source_hash][secret.name()].get();
     std::string secret_name = secret.name();
     server_.dispatcher().post([this, config_source_hash, secret_name, tls_certificate_secret]() {
       std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secret_update_callbacks_mutex_);
@@ -44,7 +48,7 @@ void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
   }
 }
 
-const Ssl::TlsCertificateConfigSharedPtr
+const Ssl::TlsCertificateConfig*
 SecretManagerImpl::findTlsCertificate(const std::string& config_source_hash,
                                       const std::string& name) const {
   std::shared_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
@@ -55,7 +59,7 @@ SecretManagerImpl::findTlsCertificate(const std::string& config_source_hash,
   }
 
   auto secret = config_source_it->second.find(name);
-  return (secret != config_source_it->second.end()) ? secret->second : nullptr;
+  return (secret != config_source_it->second.end()) ? secret->second.get() : nullptr;
 }
 
 std::string SecretManagerImpl::addOrUpdateSdsService(
@@ -77,6 +81,9 @@ void SecretManagerImpl::registerTlsCertificateConfigCallbacks(const std::string&
                                                               const std::string& secret_name,
                                                               SecretCallbacks& callback) {
   auto secret = findTlsCertificate(config_source_hash, secret_name);
+  if (!secret) {
+    return;
+  }
 
   std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secret_update_callbacks_mutex_);
 
@@ -94,6 +101,24 @@ void SecretManagerImpl::registerTlsCertificateConfigCallbacks(const std::string&
   }
 
   name_it->second.second.push_back(&callback);
+}
+
+void SecretManagerImpl::unRegisterTlsCertificateConfigCallbacks(
+    const std::string& config_source_hash, const std::string& secret_name,
+    SecretCallbacks* callback) {
+  std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secret_update_callbacks_mutex_);
+
+  auto config_source_it = tls_certificate_secret_update_callbacks_.find(config_source_hash);
+  if (config_source_it != tls_certificate_secret_update_callbacks_.end()) {
+    auto name_it = config_source_it->second.find(secret_name);
+    if (name_it != config_source_it->second.end()) {
+      auto callback_it =
+          std::find(name_it->second.second.begin(), name_it->second.second.end(), callback);
+      if (callback_it != name_it->second.second.end()) {
+        name_it->second.second.erase(callback_it);
+      }
+    }
+  }
 }
 
 } // namespace Secret

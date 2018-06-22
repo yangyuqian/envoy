@@ -387,6 +387,11 @@ Network::TransportSocketPtr ClientSslSocketFactory::createTransportSocket() cons
                   : nullptr;
 }
 
+ClientSslSocketFactory::~ClientSslSocketFactory() {
+  manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(config_->sdsConfigSourceHash(),
+                                                                   config_->sdsSecretName(), this);
+}
+
 void ClientSslSocketFactory::onAddOrUpdateSecret() {
   if (ssl_ctx_) {
     ENVOY_LOG(debug, "cluster socket updated");
@@ -406,6 +411,11 @@ ServerSslSocketFactory::ServerSslSocketFactory(std::unique_ptr<ServerContextConf
     : ssl_ctx_(manager.createSslServerContext(stats_scope, *config.get(), server_names)),
       config_(std::move(config)), manager_(manager), stats_scope_(stats_scope),
       server_names_(server_names) {}
+
+ServerSslSocketFactory::~ServerSslSocketFactory() {
+  manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(config_->sdsConfigSourceHash(),
+                                                                   config_->sdsSecretName(), this);
+}
 
 Network::TransportSocketPtr ServerSslSocketFactory::createTransportSocket() const {
   return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(

@@ -19,8 +19,8 @@ public:
 
   void addOrUpdateSecret(const std::string& config_source_hash,
                          const envoy::api::v2::auth::Secret& secret) override;
-  const Ssl::TlsCertificateConfigSharedPtr
-  findTlsCertificate(const std::string& config_source_hash, const std::string& name) const override;
+  const Ssl::TlsCertificateConfig* findTlsCertificate(const std::string& config_source_hash,
+                                                      const std::string& name) const override;
 
   std::string addOrUpdateSdsService(const envoy::api::v2::core::ConfigSource& config_source,
                                     std::string config_name) override;
@@ -28,6 +28,10 @@ public:
   void registerTlsCertificateConfigCallbacks(const std::string& config_source_hash,
                                              const std::string& secret_name,
                                              SecretCallbacks& callback) override;
+
+  void unRegisterTlsCertificateConfigCallbacks(const std::string& config_source_hash,
+                                               const std::string& secret_name,
+                                               SecretCallbacks* callback) override;
 
 private:
   Server::Instance& server_;
@@ -38,8 +42,7 @@ private:
 
   // Manages pairs of name and Ssl::TlsCertificateConfig grouped by SDS config source hash.
   // If SDS config source hash is empty, it is a static secret.
-  std::unordered_map<std::string,
-                     std::unordered_map<std::string, Ssl::TlsCertificateConfigSharedPtr>>
+  std::unordered_map<std::string, std::unordered_map<std::string, Ssl::TlsCertificateConfigPtr>>
       tls_certificate_secrets_;
   mutable std::shared_timed_mutex tls_certificate_secrets_mutex_;
 
@@ -51,7 +54,7 @@ private:
   //   ]
   // }
   std::unordered_map<std::string,
-                     std::unordered_map<std::string, std::pair<Ssl::TlsCertificateConfigSharedPtr,
+                     std::unordered_map<std::string, std::pair<const Ssl::TlsCertificateConfig*,
                                                                std::vector<SecretCallbacks*>>>>
       tls_certificate_secret_update_callbacks_;
   mutable std::shared_timed_mutex tls_certificate_secret_update_callbacks_mutex_;

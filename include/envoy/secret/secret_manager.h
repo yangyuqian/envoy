@@ -30,8 +30,8 @@ public:
    * @param name a name of the Ssl::TlsCertificateConfig.
    * @return the TlsCertificate secret. Returns nullptr if the secret is not found.
    */
-  virtual const Ssl::TlsCertificateConfigSharedPtr
-  findTlsCertificate(const std::string& config_source_hash, const std::string& name) const PURE;
+  virtual const Ssl::TlsCertificateConfig* findTlsCertificate(const std::string& config_source_hash,
+                                                              const std::string& name) const PURE;
 
   /**
    * Add or update SDS config source. SecretManager starts downloading secrets from registered
@@ -54,6 +54,16 @@ public:
   virtual void registerTlsCertificateConfigCallbacks(const std::string& config_source_hash,
                                                      const std::string& secret_name,
                                                      SecretCallbacks& callback) PURE;
+
+  /**
+   * Unregister callback function.
+   * @param config_source_hash Hash code of ConfigSource.
+   * @param secret_name name of the secret.
+   * @param callback SecretCallbacks class.
+   */
+  virtual void unRegisterTlsCertificateConfigCallbacks(const std::string& config_source_hash,
+                                                       const std::string& secret_name,
+                                                       SecretCallbacks* callback) PURE;
 };
 
 } // namespace Secret

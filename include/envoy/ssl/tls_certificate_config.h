@@ -29,7 +29,7 @@ public:
   virtual bool equalTo(const TlsCertificateConfig& secret) const PURE;
 };
 
-typedef std::shared_ptr<const TlsCertificateConfig> TlsCertificateConfigSharedPtr;
+typedef std::unique_ptr<const TlsCertificateConfig> TlsCertificateConfigPtr;
 
 } // namespace Ssl
 } // namespace Envoy
