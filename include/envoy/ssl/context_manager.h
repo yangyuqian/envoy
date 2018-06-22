@@ -20,8 +20,8 @@ public:
   /**
    * Builds a ClientContext from a ClientContextConfig.
    */
-  virtual ClientContextPtr createSslClientContext(Stats::Scope& scope,
-                                                  const ClientContextConfig& config) PURE;
+  virtual ClientContextSharedPtr createSslClientContext(Stats::Scope& scope,
+                                                        const ClientContextConfig& config) PURE;
 
   /**
    * Updates ClientContext and returns updated ClientContext.
@@ -31,14 +31,14 @@ public:
    * @param config supplies the configuration for ClientContext.
    * @return an updated ClientContext.
    */
-  virtual ClientContextPtr updateSslClientContext(const ClientContextPtr& context,
-                                                  Stats::Scope& scope,
-                                                  const ClientContextConfig& config) PURE;
+  virtual ClientContextSharedPtr updateSslClientContext(const ClientContextSharedPtr context,
+                                                        Stats::Scope& scope,
+                                                        const ClientContextConfig& config) PURE;
 
   /**
    * Builds a ServerContext from a ServerContextConfig.
    */
-  virtual ServerContextPtr
+  virtual ServerContextSharedPtr
   createSslServerContext(Stats::Scope& scope, const ServerContextConfig& config,
                          const std::vector<std::string>& server_names) PURE;
 
@@ -51,8 +51,8 @@ public:
    * @param server_names server names.
    * @return an updated ServerContext.
    */
-  virtual ServerContextPtr
-  updateSslServerContext(const ServerContextPtr& context, Stats::Scope& scope,
+  virtual ServerContextSharedPtr
+  updateSslServerContext(const ServerContextSharedPtr context, Stats::Scope& scope,
                          const ServerContextConfig& config,
                          const std::vector<std::string>& server_names) PURE;
 

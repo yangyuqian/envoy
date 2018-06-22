@@ -1,5 +1,7 @@
 #include "common/ssl/ssl_socket.h"
 
+#include <memory>
+
 #include "common/common/assert.h"
 #include "common/common/empty_string.h"
 #include "common/common/hex.h"
@@ -14,8 +16,8 @@ using Envoy::Network::PostIoAction;
 namespace Envoy {
 namespace Ssl {
 
-SslSocket::SslSocket(Context& ctx, InitialState state)
-    : ctx_(dynamic_cast<Ssl::ContextImpl&>(ctx)), ssl_(ctx_.newSsl()) {
+SslSocket::SslSocket(ContextImplSharedPtr ctx, InitialState state)
+    : ctx_(ctx), ssl_(ctx_->newSsl()) {
   if (state == InitialState::Client) {
     SSL_set_connect_state(ssl_.get());
   } else {
@@ -98,7 +100,7 @@ PostIoAction SslSocket::doHandshake() {
   if (rc == 1) {
     ENVOY_CONN_LOG(debug, "handshake complete", callbacks_->connection());
     handshake_complete_ = true;
-    ctx_.logHandshake(ssl_.get());
+    ctx_->logHandshake(ssl_.get());
     callbacks_->raiseEvent(Network::ConnectionEvent::Connected);
 
     // It's possible that we closed during the handshake callback.
@@ -125,7 +127,7 @@ void SslSocket::drainErrorQueue() {
   while (uint64_t err = ERR_get_error()) {
     if (ERR_GET_LIB(err) == ERR_LIB_SSL) {
       if (ERR_GET_REASON(err) == SSL_R_PEER_DID_NOT_RETURN_A_CERTIFICATE) {
-        ctx_.stats().fail_verify_no_cert_.inc();
+        ctx_->stats().fail_verify_no_cert_.inc();
         saw_counted_error = true;
       } else if (ERR_GET_REASON(err) == SSL_R_CERTIFICATE_VERIFY_FAILED) {
         saw_counted_error = true;
@@ -138,7 +140,7 @@ void SslSocket::drainErrorQueue() {
                    ERR_reason_error_string(err));
   }
   if (saw_error && !saw_counted_error) {
-    ctx_.stats().connection_error_.inc();
+    ctx_->stats().connection_error_.inc();
   }
 }
 
@@ -373,28 +375,56 @@ std::string SslSocket::subjectLocalCertificate() const {
   return getSubjectFromCertificate(cert);
 }
 
-ClientSslSocketFactory::ClientSslSocketFactory(const ClientContextConfig& config,
+ClientSslSocketFactory::ClientSslSocketFactory(std::unique_ptr<ClientContextConfig> config,
                                                Ssl::ContextManager& manager,
                                                Stats::Scope& stats_scope)
-    : ssl_ctx_(manager.createSslClientContext(stats_scope, config)) {}
+    : ssl_ctx_(manager.createSslClientContext(stats_scope, *config.get())),
+      config_(std::move(config)), manager_(manager), stats_scope_(stats_scope) {}
 
 Network::TransportSocketPtr ClientSslSocketFactory::createTransportSocket() const {
-  return std::make_unique<Ssl::SslSocket>(*ssl_ctx_, Ssl::InitialState::Client);
+  return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(
+                        std::dynamic_pointer_cast<ContextImpl>(ssl_ctx_), Ssl::InitialState::Client)
+                  : nullptr;
+}
+
+void ClientSslSocketFactory::onAddOrUpdateSecret() {
+  if (ssl_ctx_) {
+    ENVOY_LOG(debug, "cluster socket updated");
+    ssl_ctx_ = manager_.updateSslClientContext(ssl_ctx_, stats_scope_, *config_.get());
+  } else {
+    ENVOY_LOG(debug, "cluster socket initialized");
+    ssl_ctx_ = manager_.createSslClientContext(stats_scope_, *config_.get());
+  }
 }
 
 bool ClientSslSocketFactory::implementsSecureTransport() const { return true; }
 
-ServerSslSocketFactory::ServerSslSocketFactory(const ServerContextConfig& config,
+ServerSslSocketFactory::ServerSslSocketFactory(std::unique_ptr<ServerContextConfig> config,
                                                Ssl::ContextManager& manager,
                                                Stats::Scope& stats_scope,
                                                const std::vector<std::string>& server_names)
-    : ssl_ctx_(manager.createSslServerContext(stats_scope, config, server_names)) {}
+    : ssl_ctx_(manager.createSslServerContext(stats_scope, *config.get(), server_names)),
+      config_(std::move(config)), manager_(manager), stats_scope_(stats_scope),
+      server_names_(server_names) {}
 
 Network::TransportSocketPtr ServerSslSocketFactory::createTransportSocket() const {
-  return std::make_unique<Ssl::SslSocket>(*ssl_ctx_, Ssl::InitialState::Server);
+  return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(
+                        std::dynamic_pointer_cast<ContextImpl>(ssl_ctx_), Ssl::InitialState::Server)
+                  : nullptr;
 }
 
 bool ServerSslSocketFactory::implementsSecureTransport() const { return true; }
+
+void ServerSslSocketFactory::onAddOrUpdateSecret() {
+  if (ssl_ctx_) {
+    ENVOY_LOG(debug, "listener socket updated");
+    ssl_ctx_ =
+        manager_.updateSslServerContext(ssl_ctx_, stats_scope_, *config_.get(), server_names_);
+  } else {
+    ENVOY_LOG(debug, "listener socket initialized");
+    ssl_ctx_ = manager_.createSslServerContext(stats_scope_, *config_.get(), server_names_);
+  }
+}
 
 } // namespace Ssl
 } // namespace Envoy

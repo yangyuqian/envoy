@@ -54,8 +54,10 @@ public:
   unsigned minProtocolVersion() const override { return min_protocol_version_; };
   unsigned maxProtocolVersion() const override { return max_protocol_version_; };
 
-  const std::string& sdsConfigShourceHash() const override { return sds_config_source_hash_; }
+  const std::string& sdsConfigSourceHash() const override { return sds_config_source_hash_; }
   const std::string& sdsSecretName() const override { return sds_secret_name_; }
+
+  bool waitForSdsSecret() const override;
 
 protected:
   ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,

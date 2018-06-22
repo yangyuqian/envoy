@@ -3,6 +3,7 @@
 #include <string>
 
 #include "envoy/api/v2/auth/cert.pb.h"
+#include "envoy/secret/secret_callbacks.h"
 #include "envoy/ssl/tls_certificate_config.h"
 
 namespace Envoy {

@@ -136,6 +136,8 @@ protected:
   std::string cert_chain_file_path_;
 };
 
+typedef std::shared_ptr<ContextImpl> ContextImplSharedPtr;
+
 class ClientContextImpl : public ContextImpl, public ClientContext {
 public:
   ClientContextImpl(ContextManagerImpl& parent, Stats::Scope& scope,
@@ -147,6 +149,8 @@ private:
   const std::string server_name_indication_;
   const bool allow_renegotiation_;
 };
+
+typedef std::shared_ptr<ClientContextImpl> ClientContextImplSharedPtr;
 
 class ServerContextImpl : public ContextImpl, public ServerContext {
 public:
@@ -164,6 +168,8 @@ private:
   std::vector<uint8_t> parsed_alt_alpn_protocols_;
   const std::vector<ServerContextConfig::SessionTicketKey> session_ticket_keys_;
 };
+
+typedef std::shared_ptr<ServerContextImpl> ServerContextImplSharedPtr;
 
 } // namespace Ssl
 } // namespace Envoy

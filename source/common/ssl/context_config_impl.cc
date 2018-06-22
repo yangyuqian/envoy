@@ -190,6 +190,11 @@ const std::string& ContextConfigImpl::privateKey() const {
   return secret->privateKey();
 }
 
+bool ContextConfigImpl::waitForSdsSecret() const {
+  return !sds_config_source_hash_.empty() && !sds_secret_name_.empty() && certChain().empty() &&
+         privateKey().empty();
+}
+
 ClientContextConfigImpl::ClientContextConfigImpl(
     const envoy::api::v2::auth::UpstreamTlsContext& config, Secret::SecretManager& secret_manager)
     : ContextConfigImpl(config.common_tls_context(), secret_manager),

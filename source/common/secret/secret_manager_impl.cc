@@ -22,7 +22,7 @@ void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
     }
 
     std::string secret_name = secret.name();
-    server_.dispatcher().post([this, config_source_hash, secret_name, secret]() {
+    server_.dispatcher().post([this, config_source_hash, secret_name, tls_certificate_secret]() {
       std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secret_update_callbacks_mutex_);
       auto config_source_it = tls_certificate_secret_update_callbacks_.find(config_source_hash);
       if (config_source_it != tls_certificate_secret_update_callbacks_.end()) {
@@ -33,7 +33,7 @@ void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
             for (auto& callback : callback_it->second.second) {
               callback->onAddOrUpdateSecret();
             }
-            callback_it->second.first = secret;
+            callback_it->second.first = tls_certificate_secret;
           }
         }
       }

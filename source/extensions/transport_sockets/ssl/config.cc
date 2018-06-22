@@ -22,7 +22,7 @@ Network::TransportSocketFactoryPtr UpstreamSslSocketFactory::createTransportSock
               message),
           context.secretManager());
 
-  auto hash = upstream_config->sdsConfigShourceHash();
+  auto hash = upstream_config->sdsConfigSourceHash();
   auto name = upstream_config->sdsSecretName();
 
   std::unique_ptr<Ssl::ClientSslSocketFactory> tsf = std::make_unique<Ssl::ClientSslSocketFactory>(
@@ -51,7 +51,7 @@ Network::TransportSocketFactoryPtr DownstreamSslSocketFactory::createTransportSo
               message),
           context.sslContextManager().secretManager());
 
-  auto hash = downstream_config->sdsConfigShourceHash();
+  auto hash = downstream_config->sdsConfigSourceHash();
   auto name = downstream_config->sdsSecretName();
 
   std::unique_ptr<Ssl::ServerSslSocketFactory> tsf = std::make_unique<Ssl::ServerSslSocketFactory>(
@@ -65,7 +65,6 @@ Network::TransportSocketFactoryPtr DownstreamSslSocketFactory::createTransportSo
 
   return std::move(tsf);
 }
-} // namespace SslTransport
 
 ProtobufTypes::MessagePtr DownstreamSslSocketFactory::createEmptyConfigProto() {
   return std::make_unique<envoy::api::v2::auth::DownstreamTlsContext>();
@@ -75,7 +74,7 @@ static Registry::RegisterFactory<DownstreamSslSocketFactory,
                                  Server::Configuration::DownstreamTransportSocketConfigFactory>
     downstream_registered_;
 
+} // namespace SslTransport
 } // namespace TransportSockets
 } // namespace Extensions
-} // namespace Envoy
 } // namespace Envoy

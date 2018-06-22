@@ -9,12 +9,8 @@ load(
 envoy_package()
 
 envoy_cc_library(
-    name = "secret_manager_interface",
-    hdrs = ["secret_manager.h"],
-    deps = [
-        "//include/envoy/ssl:tls_certificate_config_interface",
-        "@envoy_api//envoy/api/v2/auth:cert_cc",
-    ],
+    name = "secret_callbacks_interface",
+    hdrs = ["secret_callbacks.h"],
 )
 
 envoy_cc_library(

@@ -122,6 +122,12 @@ public:
    * @return The secret name in SdsSecretConfig. If SdsSecretConfig is empty, returns empty string.
    */
   virtual const std::string& sdsSecretName() const PURE;
+
+  /**
+   * @return true if dynamic secret is required per config, and is not
+   * downloaded from SDS server yet; and false otherwise.
+   */
+  virtual bool waitForSdsSecret() const PURE;
 };
 
 class ClientContextConfig : public virtual ContextConfig {
@@ -137,6 +143,8 @@ public:
    */
   virtual bool allowRenegotiation() const PURE;
 };
+
+typedef std::unique_ptr<ClientContextConfig> ClientContextConfigPtr;
 
 class ServerContextConfig : public virtual ContextConfig {
 public:
@@ -158,6 +166,8 @@ public:
    */
   virtual const std::vector<SessionTicketKey>& sessionTicketKeys() const PURE;
 };
+
+typedef std::unique_ptr<ServerContextConfig> ServerContextConfigPtr;
 
 } // namespace Ssl
 } // namespace Envoy
