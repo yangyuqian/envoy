@@ -391,7 +391,7 @@ ClientSslSocketFactory::~ClientSslSocketFactory() {
   manager_.releaseContext(ssl_ctx_.get());
   if (config_) {
     manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(
-        config_->sdsConfigSourceHash(), config_->sdsSecretName(), this);
+        config_->sdsConfigSourceHash(), config_->sdsSecretName(), *this);
   }
 }
 
@@ -419,7 +419,7 @@ ServerSslSocketFactory::~ServerSslSocketFactory() {
   manager_.releaseContext(ssl_ctx_.get());
   if (config_) {
     manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(
-        config_->sdsConfigSourceHash(), config_->sdsSecretName(), this);
+        config_->sdsConfigSourceHash(), config_->sdsSecretName(), *this);
   }
 }
 

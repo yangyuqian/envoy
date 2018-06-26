@@ -63,7 +63,7 @@ public:
    */
   virtual void unRegisterTlsCertificateConfigCallbacks(const std::string& config_source_hash,
                                                        const std::string& secret_name,
-                                                       SecretCallbacks* callback) PURE;
+                                                       SecretCallbacks& callback) PURE;
 };
 
 } // namespace Secret

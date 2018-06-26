@@ -32,8 +32,13 @@ void XfccIntegrationTest::TearDown() {
   client_tls_ssl_ctx_.reset();
   fake_upstream_connection_.reset();
   fake_upstreams_.clear();
-  context_manager_.reset();
   runtime_.reset();
+}
+
+XfccIntegrationTest::~XfccIntegrationTest() {
+  HttpIntegrationTest::cleanupUpstreamAndDownstream();
+  codec_client_.reset();
+  context_manager_.reset();
 }
 
 Network::TransportSocketFactoryPtr XfccIntegrationTest::createClientSslContext(bool mtls) {

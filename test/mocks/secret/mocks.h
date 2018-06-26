@@ -29,7 +29,7 @@ public:
 
   MOCK_METHOD3(unRegisterTlsCertificateConfigCallbacks,
                void(const std::string& config_source_hash, const std::string& secret_name,
-                    SecretCallbacks* callback));
+                    SecretCallbacks& callback));
 };
 
 } // namespace Secret

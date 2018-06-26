@@ -32,6 +32,7 @@ public:
   const std::string client_dns_san_ = "DNS=lyft.com;DNS=www.lyft.com";
 
   XfccIntegrationTest() : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
+  virtual ~XfccIntegrationTest();
 
   void initialize() override;
   void createUpstreams() override;

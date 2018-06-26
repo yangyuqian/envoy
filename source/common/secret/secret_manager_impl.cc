@@ -102,7 +102,7 @@ void SecretManagerImpl::registerTlsCertificateConfigCallbacks(const std::string&
 
 void SecretManagerImpl::unRegisterTlsCertificateConfigCallbacks(
     const std::string& config_source_hash, const std::string& secret_name,
-    SecretCallbacks* callback) {
+    SecretCallbacks& callback) {
   std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secret_update_callbacks_mutex_);
 
   auto config_source_it = tls_certificate_secret_update_callbacks_.find(config_source_hash);
@@ -110,7 +110,7 @@ void SecretManagerImpl::unRegisterTlsCertificateConfigCallbacks(
     auto name_it = config_source_it->second.find(secret_name);
     if (name_it != config_source_it->second.end()) {
       auto callback_it =
-          std::find(name_it->second.second.begin(), name_it->second.second.end(), callback);
+          std::find(name_it->second.second.begin(), name_it->second.second.end(), &callback);
       if (callback_it != name_it->second.second.end()) {
         name_it->second.second.erase(callback_it);
       }

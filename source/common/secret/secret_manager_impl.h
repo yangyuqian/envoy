@@ -31,7 +31,7 @@ public:
 
   void unRegisterTlsCertificateConfigCallbacks(const std::string& config_source_hash,
                                                const std::string& secret_name,
-                                               SecretCallbacks* callback) override;
+                                               SecretCallbacks& callback) override;
 
 private:
   Server::Instance& server_;

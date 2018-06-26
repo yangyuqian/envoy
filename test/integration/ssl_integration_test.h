@@ -6,7 +6,7 @@
 #include "test/integration/http_integration.h"
 #include "test/integration/server.h"
 #include "test/mocks/runtime/mocks.h"
-#include "test/mocks/secret/mocks.h"
+#include "test/mocks/server/mocks.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -20,6 +20,7 @@ class SslIntegrationTest : public HttpIntegrationTest,
                            public testing::TestWithParam<Network::Address::IpVersion> {
 public:
   SslIntegrationTest() : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
+  virtual ~SslIntegrationTest();
 
   void initialize() override;
 
@@ -32,7 +33,7 @@ public:
 private:
   std::unique_ptr<Runtime::Loader> runtime_;
   std::unique_ptr<ContextManager> context_manager_;
-  Secret::MockSecretManager secret_manager_;
+  Server::MockInstance server_;
 
   Network::TransportSocketFactoryPtr client_ssl_ctx_plain_;
   Network::TransportSocketFactoryPtr client_ssl_ctx_alpn_;
