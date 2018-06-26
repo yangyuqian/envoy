@@ -67,6 +67,11 @@ public:
   virtual void iterateContexts(std::function<void(const Context&)> callback) PURE;
 
   /**
+   * release context from this manager.
+   */
+  virtual void releaseContext(Context* context) PURE;
+
+  /**
    * @return a SecretManager.
    */
   virtual Secret::SecretManager& secretManager() PURE;

@@ -81,9 +81,6 @@ void SecretManagerImpl::registerTlsCertificateConfigCallbacks(const std::string&
                                                               const std::string& secret_name,
                                                               SecretCallbacks* callback) {
   auto secret = findTlsCertificate(config_source_hash, secret_name);
-  if (!secret) {
-    return;
-  }
 
   std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secret_update_callbacks_mutex_);
 

@@ -388,8 +388,11 @@ Network::TransportSocketPtr ClientSslSocketFactory::createTransportSocket() cons
 }
 
 ClientSslSocketFactory::~ClientSslSocketFactory() {
-  manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(config_->sdsConfigSourceHash(),
-                                                                   config_->sdsSecretName(), this);
+  manager_.releaseContext(ssl_ctx_.get());
+  if (config_) {
+    manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(
+        config_->sdsConfigSourceHash(), config_->sdsSecretName(), this);
+  }
 }
 
 void ClientSslSocketFactory::onAddOrUpdateSecret() {
@@ -413,8 +416,11 @@ ServerSslSocketFactory::ServerSslSocketFactory(std::unique_ptr<ServerContextConf
       server_names_(server_names) {}
 
 ServerSslSocketFactory::~ServerSslSocketFactory() {
-  manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(config_->sdsConfigSourceHash(),
-                                                                   config_->sdsSecretName(), this);
+  manager_.releaseContext(ssl_ctx_.get());
+  if (config_) {
+    manager_.secretManager().unRegisterTlsCertificateConfigCallbacks(
+        config_->sdsConfigSourceHash(), config_->sdsSecretName(), this);
+  }
 }
 
 Network::TransportSocketPtr ServerSslSocketFactory::createTransportSocket() const {
