@@ -439,7 +439,7 @@ tls_certificate:
   MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), secret_config);
 
   Server::MockInstance server;
-  server.secretManager().addOrUpdateSecret("", secret_config);
+  server.secretManager().addStaticSecret(secret_config);
 
   envoy::api::v2::auth::UpstreamTlsContext tls_context;
   tls_context.mutable_common_tls_context()
@@ -472,7 +472,7 @@ tls_certificate:
   MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), secret_config);
 
   Server::MockInstance server;
-  server.secretManager().addOrUpdateSecret("", secret_config);
+  server.secretManager().addStaticSecret(secret_config);
 
   envoy::api::v2::auth::UpstreamTlsContext tls_context;
   tls_context.mutable_common_tls_context()
@@ -482,7 +482,7 @@ tls_certificate:
 
   EXPECT_THROW_WITH_MESSAGE(
       ClientContextConfigImpl client_context_config(tls_context, server.secretManager()),
-      EnvoyException, "Unknown static secret:  : missing");
+      EnvoyException, "Unknown static secret: missing");
 }
 
 // Multiple TLS certificates are not yet supported, but one is expected for

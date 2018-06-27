@@ -2,9 +2,13 @@
 
 #include <unordered_map>
 
+#include "envoy/api/v2/auth/cert.pb.validate.h"
+
 #include "common/config/resources.h"
 #include "common/config/subscription_factory.h"
+#include "common/protobuf/utility.h"
 #include "common/secret/secret_manager_util.h"
+#include "common/ssl/tls_certificate_config_impl.h"
 
 namespace Envoy {
 namespace Secret {
@@ -31,19 +35,28 @@ void SdsApi::initialize(std::function<void()> callback) {
 }
 
 void SdsApi::onConfigUpdate(const ResourceVector& resources, const std::string&) {
-  for (const auto& resource : resources) {
-    switch (resource.type_case()) {
-    case envoy::api::v2::auth::Secret::kTlsCertificate:
-      server_.secretManager().addOrUpdateSecret(sds_config_source_hash_, resource);
-      break;
-    case envoy::api::v2::auth::Secret::kSessionTicketKeys:
-      NOT_IMPLEMENTED;
-    default:
-      throw EnvoyException("sds: invalid configuration");
-    }
+  if (resources.empty()) {
+    ENVOY_LOG(debug, "Missing SDS resources for {} in onConfigUpdate()", sds_config_name_);
+    runInitializeCallbackIfAny();
+    return;
   }
-
-  runInitializeCallbackIfAny();
+  if (resources.size() != 1) {
+    throw EnvoyException(fmt::format("Unexpected SDS secrets length: {}", resources.size()));
+  }
+  const auto& secret = resources[0];
+  MessageUtil::validate(secret);
+  // TODO(PiotrSikora): Remove this hack once fixed internally.
+  if (!(secret.name() == sds_config_name_)) {
+    throw EnvoyException(
+        fmt::format("Unexpected SDS secret (expecting {}): {}", sds_config_name_, secret.name()));
+  }
+  const uint64_t new_hash = MessageUtil::hash(secret);
+  if (new_hash != secret_hash_ &&
+      secret.type_case() == envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate) {
+    tls_certificate_secrets_ =
+        std::make_unique<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
+    secret_hash_ = new_hash;
+  }
 }
 
 void SdsApi::onConfigUpdateFailed(const EnvoyException*) {

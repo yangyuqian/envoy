@@ -8,12 +8,11 @@
 namespace Envoy {
 namespace Secret {
 
-void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
-                                          const envoy::api::v2::auth::Secret& secret) {
+void SecretManagerImpl::addStaticSecret(const envoy::api::v2::auth::Secret& secret) {
   switch (secret.type_case()) {
   case envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate: {
     std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
-    tls_certificate_secrets_[config_source_hash][secret.name()] =
+    tls_certificate_secrets_[secret.name()] =
         std::make_unique<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
   } break;
   default:
@@ -22,31 +21,26 @@ void SecretManagerImpl::addOrUpdateSecret(const std::string& config_source_hash,
 }
 
 const Ssl::TlsCertificateConfig*
-SecretManagerImpl::findTlsCertificate(const std::string& config_source_hash,
-                                      const std::string& name) const {
+SecretManagerImpl::findStaticTlsCertificate(const std::string& name) const {
   std::shared_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
 
-  auto config_source_it = tls_certificate_secrets_.find(config_source_hash);
-  if (config_source_it == tls_certificate_secrets_.end()) {
-    return nullptr;
-  }
-
-  auto secret = config_source_it->second.find(name);
-  return (secret != config_source_it->second.end()) ? secret->second.get() : nullptr;
+  auto secret = tls_certificate_secrets_.find(name);
+  return (secret != tls_certificate_secrets_.end()) ? secret->second.get() : nullptr;
 }
 
-std::string SecretManagerImpl::addOrUpdateSdsService(
+DynamicSecretProviderSharedPtr SecretManagerImpl::createDynamicSecretProvider(
     const envoy::api::v2::core::ConfigSource& sds_config_source, std::string config_name) {
   std::unique_lock<std::shared_timed_mutex> lhs(sds_api_mutex_);
 
   auto hash = SecretManagerUtil::configSourceHash(sds_config_source);
   std::string sds_apis_key = hash + config_name;
-  if (sds_apis_.find(sds_apis_key) != sds_apis_.end()) {
-    return hash;
+  auto sds_api = sds_apis_[sds_apis_key].lock();
+  if (!sds_api) {
+    sds_api = std::make_shared<SdsApi>(server_, sds_config_source, hash, config_name);
+    sds_apis_[sds_apis_key] = sds_api;
   }
-  sds_apis_[sds_apis_key] = std::make_unique<SdsApi>(server_, sds_config_source, hash, config_name);
 
-  return hash;
+  return sds_api;
 }
 
 } // namespace Secret
