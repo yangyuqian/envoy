@@ -339,7 +339,7 @@ TEST_F(ConfigurationImplTest, StaticSecretRead) {
   MainImpl config;
   config.initialize(bootstrap, server_, cluster_manager_factory_);
 
-  auto secret = server_.secretManager().findTlsCertificate("", "abc.com");
+  auto secret = server_.secretManager().findStaticTlsCertificate("abc.com");
 
   ASSERT_NE(secret, nullptr);
 

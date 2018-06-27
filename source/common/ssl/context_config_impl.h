@@ -62,13 +62,15 @@ private:
   static unsigned
   tlsVersionFromProto(const envoy::api::v2::auth::TlsParameters_TlsProtocol& version,
                       unsigned default_version);
+  void readConfig(const envoy::api::v2::auth::CommonTlsContext& config);
 
   static const std::string DEFAULT_CIPHER_SUITES;
   static const std::string DEFAULT_ECDH_CURVES;
 
   Secret::SecretManager& secret_manager_;
-  const std::string sds_secret_name_;
-  const std::string sds_config_source_hash_;
+  Secret::DynamicSecretProviderSharedPtr secret_provider_;
+  std::string cert_chain_;
+  std::string private_key_;
   const std::string alpn_protocols_;
   const std::string alt_alpn_protocols_;
   const std::string cipher_suites_;
@@ -77,9 +79,7 @@ private:
   const std::string ca_cert_path_;
   const std::string certificate_revocation_list_;
   const std::string certificate_revocation_list_path_;
-  const std::string cert_chain_;
   const std::string cert_chain_path_;
-  const std::string private_key_;
   const std::string private_key_path_;
   const std::vector<std::string> verify_subject_alt_name_list_;
   const std::vector<std::string> verify_certificate_hash_list_;
