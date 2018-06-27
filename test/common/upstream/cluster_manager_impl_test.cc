@@ -90,7 +90,7 @@ public:
 
   Secret::SecretManager& secretManager() override { return secret_manager_; }
 
-  MOCK_METHOD9(clusterManagerFromProto_,
+  MOCK_METHOD8(clusterManagerFromProto_,
                ClusterManager*(const envoy::config::bootstrap::v2::Bootstrap& bootstrap,
                                Stats::Store& stats, ThreadLocal::Instance& tls,
                                Runtime::Loader& runtime, Runtime::RandomGenerator& random,
@@ -121,7 +121,7 @@ public:
     cluster_manager_.reset(new ClusterManagerImpl(
         bootstrap, factory_, factory_.stats_, factory_.tls_, factory_.runtime_, factory_.random_,
         factory_.local_info_, log_manager_, factory_.dispatcher_, admin_, system_time_source_,
-        monotonic_time_source_, secret_manager_));
+        monotonic_time_source_));
   }
 
   void checkStats(uint64_t added, uint64_t modified, uint64_t removed, uint64_t active,
@@ -149,7 +149,6 @@ public:
   NiceMock<Server::MockAdmin> admin_;
   NiceMock<MockSystemTimeSource> system_time_source_;
   NiceMock<MockMonotonicTimeSource> monotonic_time_source_;
-  Secret::MockSecretManager secret_manager_;
 };
 
 envoy::config::bootstrap::v2::Bootstrap parseBootstrapFromJson(const std::string& json_string) {
