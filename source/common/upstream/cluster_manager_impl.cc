@@ -163,24 +163,20 @@ void ClusterManagerInitHelper::setInitializedCb(std::function<void()> callback) 
   }
 }
 
-ClusterManagerImpl::ClusterManagerImpl(const envoy::config::bootstrap::v2::Bootstrap& bootstrap,
-                                       ClusterManagerFactory& factory, Stats::Store& stats,
-                                       ThreadLocal::Instance& tls, Runtime::Loader& runtime,
-                                       Runtime::RandomGenerator& random,
-                                       const LocalInfo::LocalInfo& local_info,
-                                       AccessLog::AccessLogManager& log_manager,
-                                       Event::Dispatcher& main_thread_dispatcher,
-                                       Server::Admin& admin, SystemTimeSource& system_time_source,
-                                       MonotonicTimeSource& monotonic_time_source,
-                                       Secret::SecretManager& secret_manager)
+ClusterManagerImpl::ClusterManagerImpl(
+    const envoy::config::bootstrap::v2::Bootstrap& bootstrap, ClusterManagerFactory& factory,
+    Stats::Store& stats, ThreadLocal::Instance& tls, Runtime::Loader& runtime,
+    Runtime::RandomGenerator& random, const LocalInfo::LocalInfo& local_info,
+    AccessLog::AccessLogManager& log_manager, Event::Dispatcher& main_thread_dispatcher,
+    Server::Admin& admin, SystemTimeSource& system_time_source,
+    MonotonicTimeSource& monotonic_time_source, Secret::SecretManager& secret_manager)
     : factory_(factory), runtime_(runtime), stats_(stats), tls_(tls.allocateSlot()),
       random_(random), bind_config_(bootstrap.cluster_manager().upstream_bind_config()),
       local_info_(local_info), cm_stats_(generateStats(stats)),
       init_helper_([this](Cluster& cluster) { onClusterInit(cluster); }),
       config_tracker_entry_(
           admin.getConfigTracker().add("clusters", [this] { return dumpClusterConfigs(); })),
-      system_time_source_(system_time_source),
-      secret_manager_(secret_manager) {
+      system_time_source_(system_time_source), secret_manager_(secret_manager) {
   async_client_manager_ = std::make_unique<Grpc::AsyncClientManagerImpl>(*this, tls);
   const auto& cm_config = bootstrap.cluster_manager();
   if (cm_config.has_outlier_detection()) {
@@ -957,11 +953,10 @@ ClusterManagerPtr ProdClusterManagerFactory::clusterManagerFromProto(
     ThreadLocal::Instance& tls, Runtime::Loader& runtime, Runtime::RandomGenerator& random,
     const LocalInfo::LocalInfo& local_info, AccessLog::AccessLogManager& log_manager,
     Server::Admin& admin) {
-  return ClusterManagerPtr{new ClusterManagerImpl(bootstrap, *this, stats, tls, runtime, random,
-                                                  local_info, log_manager, main_thread_dispatcher_,
-                                                  admin, ProdSystemTimeSource::instance_,
-                                                  ProdMonotonicTimeSource::instance_,
-                                                  secret_manager)};
+  return ClusterManagerPtr{
+      new ClusterManagerImpl(bootstrap, *this, stats, tls, runtime, random, local_info, log_manager,
+                             main_thread_dispatcher_, admin, ProdSystemTimeSource::instance_,
+                             ProdMonotonicTimeSource::instance_, secret_manager)};
 }
 
 Http::ConnectionPool::InstancePtr ProdClusterManagerFactory::allocateConnPool(
