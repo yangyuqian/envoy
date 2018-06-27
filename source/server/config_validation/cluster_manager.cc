@@ -40,7 +40,7 @@ ValidationClusterManager::ValidationClusterManager(
     Server::Admin& admin)
     : ClusterManagerImpl(bootstrap, factory, stats, tls, runtime, random, local_info, log_manager,
                          main_thread_dispatcher, admin, ProdSystemTimeSource::instance_,
-                         ProdMonotonicTimeSource::instance_, secret_manager) {}
+                         ProdMonotonicTimeSource::instance_) {}
 
 Http::ConnectionPool::Instance*
 ValidationClusterManager::httpConnPoolForCluster(const std::string&, ResourcePriority,
