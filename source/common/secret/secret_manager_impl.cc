@@ -11,8 +11,8 @@ namespace Secret {
 void SecretManagerImpl::addStaticSecret(const envoy::api::v2::auth::Secret& secret) {
   switch (secret.type_case()) {
   case envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate: {
-    std::unique_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
-    tls_certificate_secrets_[secret.name()] =
+    std::unique_lock<std::shared_timed_mutex> lhs(static_tls_certificate_secrets_mutex_);
+    static_tls_certificate_secrets_[secret.name()] =
         std::make_unique<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
   } break;
   default:
@@ -22,25 +22,25 @@ void SecretManagerImpl::addStaticSecret(const envoy::api::v2::auth::Secret& secr
 
 const Ssl::TlsCertificateConfig*
 SecretManagerImpl::findStaticTlsCertificate(const std::string& name) const {
-  std::shared_lock<std::shared_timed_mutex> lhs(tls_certificate_secrets_mutex_);
+  std::shared_lock<std::shared_timed_mutex> lhs(static_tls_certificate_secrets_mutex_);
 
-  auto secret = tls_certificate_secrets_.find(name);
-  return (secret != tls_certificate_secrets_.end()) ? secret->second.get() : nullptr;
+  auto secret = static_tls_certificate_secrets_.find(name);
+  return (secret != static_tls_certificate_secrets_.end()) ? secret->second.get() : nullptr;
 }
 
-DynamicSecretProviderSharedPtr SecretManagerImpl::createDynamicSecretProvider(
+DynamicSecretProviderSharedPtr SecretManagerImpl::findOrCreateDynamicSecretProvider(
     const envoy::api::v2::core::ConfigSource& sds_config_source, std::string config_name) {
-  std::unique_lock<std::shared_timed_mutex> lhs(sds_api_mutex_);
-
   auto hash = SecretManagerUtil::configSourceHash(sds_config_source);
-  std::string sds_apis_key = hash + config_name;
-  auto sds_api = sds_apis_[sds_apis_key].lock();
-  if (!sds_api) {
-    sds_api = std::make_shared<SdsApi>(server_, sds_config_source, hash, config_name);
-    sds_apis_[sds_apis_key] = sds_api;
+  std::string map_key = hash + config_name;
+
+  std::unique_lock<std::shared_timed_mutex> lhs(dynamic_secret_providers_mutex_);
+  auto dynamic_secret_provider = dynamic_secret_providers_[map_key].lock();
+  if (!dynamic_secret_provider) {
+    dynamic_secret_provider = std::make_shared<SdsApi>(server_, sds_config_source, config_name);
+    dynamic_secret_providers_[map_key] = dynamic_secret_provider;
   }
 
-  return sds_api;
+  return dynamic_secret_provider;
 }
 
 } // namespace Secret

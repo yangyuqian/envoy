@@ -5,7 +5,6 @@
 #include "envoy/api/v2/auth/cert.pb.h"
 #include "envoy/api/v2/core/config_source.pb.h"
 #include "envoy/config/subscription.h"
-#include "envoy/secret/secret_manager.h"
 #include "envoy/server/instance.h"
 
 namespace Envoy {
@@ -20,7 +19,7 @@ class SdsApi : public Init::Target,
                public Logger::Loggable<Logger::Id::secret> {
 public:
   SdsApi(Server::Instance& server, const envoy::api::v2::core::ConfigSource& sds_config,
-         std::string sds_config_hash, std::string sds_config_name);
+         std::string sds_config_name);
 
   // Init::Target
   void initialize(std::function<void()> callback) override;
@@ -42,7 +41,6 @@ private:
 
   Server::Instance& server_;
   const envoy::api::v2::core::ConfigSource sds_config_;
-  const std::string sds_config_source_hash_;
   std::unique_ptr<Config::Subscription<envoy::api::v2::auth::Secret>> subscription_;
   std::function<void()> initialize_callback_;
   std::string sds_config_name_;

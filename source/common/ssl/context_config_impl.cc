@@ -105,7 +105,7 @@ void ContextConfigImpl::readConfig(const envoy::api::v2::auth::CommonTlsContext&
         throw EnvoyException(fmt::format("Unknown static secret: {}", secret_name));
       }
     } else {
-      secret_provider_ = secret_manager_.createDynamicSecretProvider(
+      secret_provider_ = secret_manager_.findOrCreateDynamicSecretProvider(
           config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name);
       return;
     }

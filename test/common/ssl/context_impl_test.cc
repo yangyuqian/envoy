@@ -492,12 +492,12 @@ TEST(ServerContextConfigImplTest, MultipleTlsCertificates) {
   envoy::api::v2::auth::DownstreamTlsContext tls_context;
   Server::MockInstance server;
   EXPECT_THROW_WITH_MESSAGE(
-      ServerContextConfigImpl client_context_config(tls_context, server.secretManager()),
+      ServerContextConfigImpl server_context_config(tls_context, server.secretManager()),
       EnvoyException, "A single TLS certificate is required for server contexts");
   tls_context.mutable_common_tls_context()->add_tls_certificates();
   tls_context.mutable_common_tls_context()->add_tls_certificates();
   EXPECT_THROW_WITH_MESSAGE(
-      ServerContextConfigImpl client_context_config(tls_context, server.secretManager()),
+      ServerContextConfigImpl server_context_config(tls_context, server.secretManager()),
       EnvoyException, "A single TLS certificate is required for server contexts");
 }
 
@@ -506,12 +506,12 @@ TEST(ServerContextConfigImplTest, TlsCertificatesAndSdsConfig) {
   envoy::api::v2::auth::DownstreamTlsContext tls_context;
 
   EXPECT_THROW_WITH_MESSAGE(
-      ServerContextConfigImpl client_context_config(tls_context, server.secretManager()),
+      ServerContextConfigImpl server_context_config(tls_context, server.secretManager()),
       EnvoyException, "A single TLS certificate is required for server contexts");
   tls_context.mutable_common_tls_context()->add_tls_certificates();
   tls_context.mutable_common_tls_context()->add_tls_certificate_sds_secret_configs();
   EXPECT_THROW_WITH_MESSAGE(
-      ServerContextConfigImpl client_context_config(tls_context, server.secretManager()),
+      ServerContextConfigImpl server_context_config(tls_context, server.secretManager()),
       EnvoyException, "A single TLS certificate is required for server contexts");
 }
 
@@ -520,12 +520,12 @@ TEST(ServerContextImplTest, TlsCertificateNonEmpty) {
   envoy::api::v2::auth::DownstreamTlsContext tls_context;
   Server::MockInstance server;
   tls_context.mutable_common_tls_context()->add_tls_certificates();
-  ServerContextConfigImpl client_context_config(tls_context, server.secretManager());
+  ServerContextConfigImpl server_context_config(tls_context, server.secretManager());
   Runtime::MockLoader runtime;
   ContextManagerImpl manager(runtime);
   Stats::IsolatedStoreImpl store;
   EXPECT_THROW_WITH_MESSAGE(ServerContextPtr server_ctx(manager.createSslServerContext(
-                                store, client_context_config, std::vector<std::string>{})),
+                                store, server_context_config, std::vector<std::string>{})),
                             EnvoyException,
                             "Server TlsCertificates must have a certificate specified");
 }
