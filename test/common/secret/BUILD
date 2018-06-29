@@ -23,3 +23,18 @@ envoy_cc_test(
         "//test/test_common:utility_lib",
     ],
 )
+
+envoy_cc_test(
+    name = "sds_api_test",
+    srcs = ["sds_api_test.cc"],
+    data = [
+        "//test/common/ssl/test_data:certs",
+    ],
+    deps = [
+        "//source/common/secret:sds_api_lib",
+        "//test/mocks/server:server_mocks",
+        "//test/test_common:environment_lib",
+        "//test/test_common:registry_lib",
+        "//test/test_common:utility_lib",
+    ],
+)

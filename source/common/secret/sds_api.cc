@@ -14,9 +14,8 @@ namespace Envoy {
 namespace Secret {
 
 SdsApi::SdsApi(Server::Instance& server, const envoy::api::v2::core::ConfigSource& sds_config,
-               std::string sds_config_hash, std::string sds_config_name)
-    : server_(server), sds_config_(sds_config), sds_config_source_hash_(sds_config_hash),
-      sds_config_name_(sds_config_name) {
+               std::string sds_config_name)
+    : server_(server), sds_config_(sds_config), sds_config_name_(sds_config_name) {
   server_.initManager().registerTarget(*this);
 }
 
@@ -45,11 +44,11 @@ void SdsApi::onConfigUpdate(const ResourceVector& resources, const std::string&)
   }
   const auto& secret = resources[0];
   MessageUtil::validate(secret);
-  // TODO(PiotrSikora): Remove this hack once fixed internally.
   if (!(secret.name() == sds_config_name_)) {
     throw EnvoyException(
         fmt::format("Unexpected SDS secret (expecting {}): {}", sds_config_name_, secret.name()));
   }
+
   const uint64_t new_hash = MessageUtil::hash(secret);
   if (new_hash != secret_hash_ &&
       secret.type_case() == envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate) {
@@ -57,6 +56,8 @@ void SdsApi::onConfigUpdate(const ResourceVector& resources, const std::string&)
         std::make_unique<Ssl::TlsCertificateConfigImpl>(secret.tls_certificate());
     secret_hash_ = new_hash;
   }
+
+  runInitializeCallbackIfAny();
 }
 
 void SdsApi::onConfigUpdateFailed(const EnvoyException*) {
