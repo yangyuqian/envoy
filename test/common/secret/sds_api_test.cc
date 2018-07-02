@@ -2,6 +2,7 @@
 
 #include "envoy/api/v2/auth/cert.pb.h"
 #include "envoy/common/exception.h"
+#include "envoy/service/discovery/v2/sds.pb.h"
 
 #include "common/secret/sds_api.h"
 
@@ -21,12 +22,11 @@ namespace Envoy {
 namespace Secret {
 namespace {
 
-class SdsApiTest : public testing::Test {
-public:
-};
+class SdsApiTest : public testing::Test {};
 
 TEST_F(SdsApiTest, BasicTest) {
   ::testing::InSequence s;
+  const envoy::service::discovery::v2::SdsDummy dummy;
   NiceMock<Server::MockInstance> server;
   EXPECT_CALL(server.init_manager_, registerTarget(_));
 
@@ -39,10 +39,8 @@ TEST_F(SdsApiTest, BasicTest) {
   google_grpc->set_stat_prefix("test");
   SdsApi sds_api(server, config_source, "abc.com");
 
-  Grpc::MockAsyncClient* grpc_client{new Grpc::MockAsyncClient};
-  Grpc::MockAsyncClientFactory* factory{new Grpc::MockAsyncClientFactory};
-  EXPECT_CALL(server.cluster_manager_, grpcAsyncClientManager())
-      .WillRepeatedly(ReturnRef(server.cluster_manager_.async_client_manager_));
+  NiceMock<Grpc::MockAsyncClient>* grpc_client{new NiceMock<Grpc::MockAsyncClient>()};
+  NiceMock<Grpc::MockAsyncClientFactory>* factory{new NiceMock<Grpc::MockAsyncClientFactory>()};
   EXPECT_CALL(server.cluster_manager_.async_client_manager_, factoryForGrpcService(_, _, _))
       .WillOnce(Invoke([factory](const envoy::api::v2::core::GrpcService&, Stats::Scope&, bool) {
         return Grpc::AsyncClientFactoryPtr{factory};
@@ -50,6 +48,14 @@ TEST_F(SdsApiTest, BasicTest) {
   EXPECT_CALL(*factory, create()).WillOnce(Invoke([grpc_client] {
     return Grpc::AsyncClientPtr{grpc_client};
   }));
+  NiceMock<Grpc::MockAsyncStream> async_stream;
+  EXPECT_CALL(*grpc_client, start(_, _)).WillOnce(Return(&async_stream));
+  envoy::api::v2::DiscoveryRequest expected_request;
+  expected_request.mutable_node()->CopyFrom(server.local_info_.node_);
+  expected_request.add_resource_names("abc.com");
+  expected_request.set_type_url(Config::TypeUrl::get().Secret);
+  EXPECT_CALL(async_stream, sendMessage(ProtoEq(expected_request), _));
+  EXPECT_CALL(server.init_manager_.initialized_, ready());
   server.init_manager_.initialize();
 }
 
