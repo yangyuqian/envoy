@@ -7,7 +7,6 @@
 #include "common/config/resources.h"
 #include "common/config/subscription_factory.h"
 #include "common/protobuf/utility.h"
-#include "common/secret/secret_manager_util.h"
 #include "common/ssl/tls_certificate_config_impl.h"
 
 namespace Envoy {

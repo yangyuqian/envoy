@@ -63,9 +63,6 @@ public:
             *Protobuf::DescriptorPool::generated_pool()->FindMethodByName(rest_method), stats));
         break;
       case envoy::api::v2::core::ApiConfigSource::GRPC: {
-        std::cout << "node addr: " << &node << "\n"
-                  << "cm addr: " << &cm << "\n"
-                  << "grpc cm addr: " << &cm.grpcAsyncClientManager() << std::endl;
         result.reset(new GrpcSubscriptionImpl<ResourceType>(
             node,
             Config::Utility::factoryForGrpcApiConfigSource(cm.grpcAsyncClientManager(),

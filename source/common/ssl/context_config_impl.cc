@@ -68,7 +68,7 @@ ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContex
           tlsVersionFromProto(config.tls_params().tls_minimum_protocol_version(), TLS1_VERSION)),
       max_protocol_version_(
           tlsVersionFromProto(config.tls_params().tls_maximum_protocol_version(), TLS1_2_VERSION)) {
-  readConfig(config);
+  readCertChainConfig(config);
 
   if (ca_cert_.empty()) {
     if (!certificate_revocation_list_.empty()) {
@@ -86,7 +86,7 @@ ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContex
   }
 }
 
-void ContextConfigImpl::readConfig(const envoy::api::v2::auth::CommonTlsContext& config) {
+void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config) {
   if (!config.tls_certificates().empty()) {
     cert_chain_ = Config::DataSource::read(config.tls_certificates()[0].certificate_chain(), true);
     private_key_ = Config::DataSource::read(config.tls_certificates()[0].private_key(), true);

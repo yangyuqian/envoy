@@ -21,33 +21,16 @@ namespace Envoy {
 namespace Secret {
 namespace {
 
-class MockServer : public Server::MockInstance {
-public:
-  Init::Manager& initManager() { return initmanager_; }
-
-private:
-  class InitManager : public Init::Manager {
-  public:
-    void initialize(std::function<void()> callback);
-    void registerTarget(Init::Target&) override {}
-  };
-
-  InitManager initmanager_;
-};
-
 class SdsApiTest : public testing::Test {
 public:
-  Grpc::MockAsyncClient* grpc_client_{new Grpc::MockAsyncClient};
-  Grpc::MockAsyncClientFactory* factory_{new Grpc::MockAsyncClientFactory};
 };
 
 TEST_F(SdsApiTest, BasicTest) {
   ::testing::InSequence s;
-  Server::MockInstance server;
+  NiceMock<Server::MockInstance> server;
   Upstream::ClusterManager::ClusterInfoMap cluster_map;
   Upstream::MockCluster cluster;
   cluster_map.emplace("foo_cluster", cluster);
-  EXPECT_CALL(server.cluster_manager_, clusters()).WillOnce(Return(cluster_map));
   EXPECT_CALL(server.init_manager_, registerTarget(_));
 
   envoy::api::v2::core::ConfigSource config_source;
@@ -57,21 +40,25 @@ TEST_F(SdsApiTest, BasicTest) {
   grpc_service->mutable_envoy_grpc()->set_cluster_name("foo_cluster");
   SdsApi sds_api(server, config_source, "abc.com");
 
+  EXPECT_CALL(server.cluster_manager_, clusters()).WillOnce(Return(cluster_map));
+  Grpc::MockAsyncClient* grpc_client{new Grpc::MockAsyncClient};
+  Grpc::MockAsyncClientFactory* factory{new Grpc::MockAsyncClientFactory};
   EXPECT_CALL(server.cluster_manager_, grpcAsyncClientManager())
       .WillRepeatedly(ReturnRef(server.cluster_manager_.async_client_manager_));
   EXPECT_CALL(server.cluster_manager_.async_client_manager_, factoryForGrpcService(_, _, _))
-      .WillOnce(Invoke([this](const envoy::api::v2::core::GrpcService&, Stats::Scope&, bool) {
-        return Grpc::AsyncClientFactoryPtr{factory_};
+      .WillOnce(Invoke([factory](const envoy::api::v2::core::GrpcService&, Stats::Scope&, bool) {
+        return Grpc::AsyncClientFactoryPtr{factory};
       }));
-  EXPECT_CALL(*factory_, create()).WillOnce(Invoke([this] {
-    return Grpc::AsyncClientPtr{grpc_client_};
+  EXPECT_CALL(*factory, create()).WillOnce(Invoke([grpc_client] {
+    return Grpc::AsyncClientPtr{grpc_client};
   }));
   server.init_manager_.initialize();
 }
 
 TEST_F(SdsApiTest, SecretUpdateSuccess) {
-  MockServer server;
+  Server::MockInstance server;
   envoy::api::v2::core::ConfigSource config_source;
+  EXPECT_CALL(server, initManager());
   SdsApi sds_api(server, config_source, "abc.com");
 
   std::string yaml =
@@ -99,8 +86,9 @@ TEST_F(SdsApiTest, SecretUpdateSuccess) {
 }
 
 TEST_F(SdsApiTest, EmptyResource) {
-  MockServer server;
+  Server::MockInstance server;
   envoy::api::v2::core::ConfigSource config_source;
+  EXPECT_CALL(server, initManager());
   SdsApi sds_api(server, config_source, "abc.com");
 
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
@@ -109,8 +97,9 @@ TEST_F(SdsApiTest, EmptyResource) {
 }
 
 TEST_F(SdsApiTest, SecretUpdateWrongSize) {
-  MockServer server;
+  Server::MockInstance server;
   envoy::api::v2::core::ConfigSource config_source;
+  EXPECT_CALL(server, initManager());
   SdsApi sds_api(server, config_source, "abc.com");
 
   std::string yaml =
@@ -134,8 +123,9 @@ TEST_F(SdsApiTest, SecretUpdateWrongSize) {
 }
 
 TEST_F(SdsApiTest, SecretUpdateWrongSecretName) {
-  MockServer server;
+  Server::MockInstance server;
   envoy::api::v2::core::ConfigSource config_source;
+  EXPECT_CALL(server, initManager());
   SdsApi sds_api(server, config_source, "abc.com");
 
   std::string yaml =
