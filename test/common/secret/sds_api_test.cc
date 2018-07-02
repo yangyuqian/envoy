@@ -28,19 +28,17 @@ public:
 TEST_F(SdsApiTest, BasicTest) {
   ::testing::InSequence s;
   NiceMock<Server::MockInstance> server;
-  Upstream::ClusterManager::ClusterInfoMap cluster_map;
-  Upstream::MockCluster cluster;
-  cluster_map.emplace("foo_cluster", cluster);
   EXPECT_CALL(server.init_manager_, registerTarget(_));
 
   envoy::api::v2::core::ConfigSource config_source;
   config_source.mutable_api_config_source()->set_api_type(
       envoy::api::v2::core::ApiConfigSource::GRPC);
   auto grpc_service = config_source.mutable_api_config_source()->add_grpc_services();
-  grpc_service->mutable_envoy_grpc()->set_cluster_name("foo_cluster");
+  auto google_grpc = grpc_service->mutable_google_grpc();
+  google_grpc->set_target_uri("fake_address");
+  google_grpc->set_stat_prefix("test");
   SdsApi sds_api(server, config_source, "abc.com");
 
-  EXPECT_CALL(server.cluster_manager_, clusters()).WillOnce(Return(cluster_map));
   Grpc::MockAsyncClient* grpc_client{new Grpc::MockAsyncClient};
   Grpc::MockAsyncClientFactory* factory{new Grpc::MockAsyncClientFactory};
   EXPECT_CALL(server.cluster_manager_, grpcAsyncClientManager())
