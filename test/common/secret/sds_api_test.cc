@@ -5,12 +5,17 @@
 
 #include "common/secret/sds_api.h"
 
+#include "test/mocks/grpc/mocks.h"
 #include "test/mocks/server/mocks.h"
 #include "test/test_common/environment.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+
+using ::testing::Invoke;
+using ::testing::Return;
+using ::testing::_;
 
 namespace Envoy {
 namespace Secret {
@@ -30,7 +35,39 @@ private:
   InitManager initmanager_;
 };
 
-class SdsApiTest : public testing::Test {};
+class SdsApiTest : public testing::Test {
+public:
+  Grpc::MockAsyncClient* grpc_client_{new Grpc::MockAsyncClient};
+  Grpc::MockAsyncClientFactory* factory_{new Grpc::MockAsyncClientFactory};
+};
+
+TEST_F(SdsApiTest, BasicTest) {
+  ::testing::InSequence s;
+  Server::MockInstance server;
+  Upstream::ClusterManager::ClusterInfoMap cluster_map;
+  Upstream::MockCluster cluster;
+  cluster_map.emplace("foo_cluster", cluster);
+  EXPECT_CALL(server.cluster_manager_, clusters()).WillOnce(Return(cluster_map));
+  EXPECT_CALL(server.init_manager_, registerTarget(_));
+
+  envoy::api::v2::core::ConfigSource config_source;
+  config_source.mutable_api_config_source()->set_api_type(
+      envoy::api::v2::core::ApiConfigSource::GRPC);
+  auto grpc_service = config_source.mutable_api_config_source()->add_grpc_services();
+  grpc_service->mutable_envoy_grpc()->set_cluster_name("foo_cluster");
+  SdsApi sds_api(server, config_source, "abc.com");
+
+  EXPECT_CALL(server.cluster_manager_, grpcAsyncClientManager())
+      .WillRepeatedly(ReturnRef(server.cluster_manager_.async_client_manager_));
+  EXPECT_CALL(server.cluster_manager_.async_client_manager_, factoryForGrpcService(_, _, _))
+      .WillOnce(Invoke([this](const envoy::api::v2::core::GrpcService&, Stats::Scope&, bool) {
+        return Grpc::AsyncClientFactoryPtr{factory_};
+      }));
+  EXPECT_CALL(*factory_, create()).WillOnce(Invoke([this] {
+    return Grpc::AsyncClientPtr{grpc_client_};
+  }));
+  server.init_manager_.initialize();
+}
 
 TEST_F(SdsApiTest, SecretUpdateSuccess) {
   MockServer server;
