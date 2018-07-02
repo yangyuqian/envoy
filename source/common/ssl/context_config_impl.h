@@ -71,7 +71,7 @@ private:
   static unsigned
   tlsVersionFromProto(const envoy::api::v2::auth::TlsParameters_TlsProtocol& version,
                       unsigned default_version);
-  void readConfig(const envoy::api::v2::auth::CommonTlsContext& config);
+  void readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config);
 
   static const std::string DEFAULT_CIPHER_SUITES;
   static const std::string DEFAULT_ECDH_CURVES;
