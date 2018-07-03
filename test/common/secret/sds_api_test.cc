@@ -48,13 +48,6 @@ TEST_F(SdsApiTest, BasicTest) {
   EXPECT_CALL(*factory, create()).WillOnce(Invoke([grpc_client] {
     return Grpc::AsyncClientPtr{grpc_client};
   }));
-  NiceMock<Grpc::MockAsyncStream> async_stream;
-  EXPECT_CALL(*grpc_client, start(_, _)).WillOnce(Return(&async_stream));
-  envoy::api::v2::DiscoveryRequest expected_request;
-  expected_request.mutable_node()->CopyFrom(server.local_info_.node_);
-  expected_request.add_resource_names("abc.com");
-  expected_request.set_type_url(Config::TypeUrl::get().Secret);
-  EXPECT_CALL(async_stream, sendMessage(ProtoEq(expected_request), _));
   EXPECT_CALL(server.init_manager_.initialized_, ready());
   server.init_manager_.initialize();
 }
