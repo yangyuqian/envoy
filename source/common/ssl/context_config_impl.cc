@@ -16,8 +16,6 @@
 namespace Envoy {
 namespace Ssl {
 
-namespace {} // namespace
-
 const std::string ContextConfigImpl::DEFAULT_CIPHER_SUITES =
     "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]:"
     "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]:"
@@ -105,7 +103,7 @@ void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTl
         throw EnvoyException(fmt::format("Unknown static secret: {}", secret_name));
       }
     } else {
-      secret_provider_ = secret_manager_.findOrCreateDynamicSecretProvider(
+      secret_provider_ = secret_manager_.findOrCreateDynamicTlsCertificateSecretProvider(
           config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name);
       return;
     }

@@ -112,16 +112,6 @@ public:
    * @return The maximum TLS protocol version to negotiate.
    */
   virtual unsigned maxProtocolVersion() const PURE;
-
-  /**
-   * @return true of the config is valid.
-   */
-  virtual bool isValid() const PURE;
-
-  /**
-   * @return the DynamicSecretProvider object.
-   */
-  virtual Secret::DynamicSecretProvider* getDynamicSecretProvider() const PURE;
 };
 
 class ClientContextConfig : public virtual ContextConfig {

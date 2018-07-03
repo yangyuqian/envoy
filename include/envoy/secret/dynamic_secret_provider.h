@@ -9,10 +9,12 @@ namespace Secret {
 
 /**
  * An interface to fetch dynamic secret.
+ *
+ * TODO(JimmyCYJ): Support other types of secrets.
  */
-class DynamicSecretProvider {
+class DynamicTlsCertificateSecretProvider {
 public:
-  virtual ~DynamicSecretProvider() {}
+  virtual ~DynamicTlsCertificateSecretProvider() {}
 
   /**
    * @return the TlsCertificate secret. Returns nullptr if the secret is not found.
@@ -20,7 +22,8 @@ public:
   virtual const Ssl::TlsCertificateConfig* secret() const PURE;
 };
 
-typedef std::shared_ptr<DynamicSecretProvider> DynamicSecretProviderSharedPtr;
+typedef std::shared_ptr<DynamicTlsCertificateSecretProvider>
+    DynamicTlsCertificateSecretProviderSharedPtr;
 
 } // namespace Secret
 } // namespace Envoy

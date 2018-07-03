@@ -35,11 +35,11 @@ public:
    *
    * @param config_source a protobuf message object contains SDS config source.
    * @param config_name a name that uniquely refers to the SDS config source
-   * @return the dynamic secret provider.
+   * @return the dynamic tls certificate secret provider.
    */
-  virtual DynamicSecretProviderSharedPtr
-  findOrCreateDynamicSecretProvider(const envoy::api::v2::core::ConfigSource& config_source,
-                                    std::string config_name) PURE;
+  virtual DynamicTlsCertificateSecretProviderSharedPtr
+  findOrCreateDynamicTlsCertificateSecretProvider(
+      const envoy::api::v2::core::ConfigSource& config_source, std::string config_name) PURE;
 };
 
 } // namespace Secret

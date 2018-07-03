@@ -14,7 +14,7 @@ namespace Secret {
  * SDS API implementation that fetches secrets from SDS server via Subscription.
  */
 class SdsApi : public Init::Target,
-               public DynamicSecretProvider,
+               public DynamicTlsCertificateSecretProvider,
                public Config::SubscriptionCallbacks<envoy::api::v2::auth::Secret>,
                public Logger::Loggable<Logger::Id::secret> {
 public:
@@ -31,7 +31,7 @@ public:
     return MessageUtil::anyConvert<envoy::api::v2::auth::Secret>(resource).name();
   }
 
-  // DynamicSecretProvider
+  // DynamicTlsCertificateSecretProvider
   const Ssl::TlsCertificateConfig* secret() const override {
     return tls_certificate_secrets_.get();
   }
@@ -43,7 +43,7 @@ private:
   const envoy::api::v2::core::ConfigSource sds_config_;
   std::unique_ptr<Config::Subscription<envoy::api::v2::auth::Secret>> subscription_;
   std::function<void()> initialize_callback_;
-  std::string sds_config_name_;
+  const std::string sds_config_name_;
 
   uint64_t secret_hash_;
   Ssl::TlsCertificateConfigPtr tls_certificate_secrets_;

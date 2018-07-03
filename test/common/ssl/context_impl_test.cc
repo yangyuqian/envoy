@@ -448,8 +448,6 @@ TEST(ClientContextConfigImplTest, SdsConfig) {
   sds_secret_configs->mutable_sds_config();
   ClientContextConfigImpl client_context_config(tls_context, server.secretManager());
 
-  // When sds secret is not downloaded, config is not valid.
-  EXPECT_FALSE(client_context_config.isValid());
   EXPECT_EQ("", client_context_config.certChain());
   EXPECT_EQ("", client_context_config.privateKey());
 
@@ -466,17 +464,6 @@ TEST(ClientContextConfigImplTest, SdsConfig) {
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
   auto secret_config = secret_resources.Add();
   MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), *secret_config);
-  static_cast<Secret::SdsApi*>(client_context_config.getDynamicSecretProvider())
-      ->onConfigUpdate(secret_resources, "");
-
-  // When sds secret is downloaded, config is valid.
-  EXPECT_TRUE(client_context_config.isValid());
-  const std::string cert_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem";
-  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(cert_pem)),
-            client_context_config.certChain());
-  const std::string key_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem";
-  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(key_pem)),
-            client_context_config.privateKey());
 }
 
 TEST(ClientContextConfigImplTest, StaticTlsCertificates) {
@@ -580,8 +567,6 @@ TEST(ServerContextConfigImplTest, SdsConfig) {
   sds_secret_configs->mutable_sds_config();
   ServerContextConfigImpl server_context_config(tls_context, server.secretManager());
 
-  // When sds secret is not downloaded, config is not valid.
-  EXPECT_FALSE(server_context_config.isValid());
   EXPECT_EQ("", server_context_config.certChain());
   EXPECT_EQ("", server_context_config.privateKey());
 
@@ -598,17 +583,6 @@ TEST(ServerContextConfigImplTest, SdsConfig) {
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
   auto secret_config = secret_resources.Add();
   MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), *secret_config);
-  static_cast<Secret::SdsApi*>(server_context_config.getDynamicSecretProvider())
-      ->onConfigUpdate(secret_resources, "");
-
-  // When sds secret is downloaded, config is valid.
-  EXPECT_TRUE(server_context_config.isValid());
-  const std::string cert_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem";
-  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(cert_pem)),
-            server_context_config.certChain());
-  const std::string key_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem";
-  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(key_pem)),
-            server_context_config.privateKey());
 }
 
 // TlsCertificate messages must have a cert for servers.

@@ -32,6 +32,7 @@ envoy_cc_library(
         "//source/common/common:minimal_logger_lib",
         "//source/common/config:resources_lib",
         "//source/common/config:subscription_factory_lib",
+        "//source/common/protobuf:utility_lib",
         "//source/common/ssl:tls_certificate_config_impl_lib",
     ],
 )
