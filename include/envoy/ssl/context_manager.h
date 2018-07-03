@@ -25,7 +25,7 @@ public:
   /**
    * Builds a ServerContext from a ServerContextConfig.
    */
-  virtual ServerContextPtr
+  virtual ServerContextSharedPtr
   createSslServerContext(Stats::Scope& scope, const ServerContextConfig& config,
                          const std::vector<std::string>& server_names) PURE;
 

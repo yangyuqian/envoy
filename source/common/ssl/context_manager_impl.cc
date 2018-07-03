@@ -28,7 +28,7 @@ ContextManagerImpl::createSslClientContext(Stats::Scope& scope, const ClientCont
   return context;
 }
 
-ServerContextPtr
+ServerContextSharedPtr
 ContextManagerImpl::createSslServerContext(Stats::Scope& scope, const ServerContextConfig& config,
                                            const std::vector<std::string>& server_names) {
   ServerContextSharedPtr context(

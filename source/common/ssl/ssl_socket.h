@@ -20,7 +20,7 @@ class SslSocket : public Network::TransportSocket,
                   public Connection,
                   protected Logger::Loggable<Logger::Id::connection> {
 public:
-  SslSocket(Context& ctx, InitialState state);
+  SslSocket(ContextSharedPtr ctx, InitialState state);
 
   // Ssl::Connection
   bool peerCertificatePresented() const override;
