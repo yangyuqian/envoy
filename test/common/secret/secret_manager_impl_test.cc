@@ -24,7 +24,6 @@ public:
 private:
   class InitManager : public Init::Manager {
   public:
-    void initialize(std::function<void()> callback);
     void registerTarget(Init::Target&) override {}
   };
 
