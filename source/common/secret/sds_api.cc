@@ -14,7 +14,7 @@ namespace Secret {
 
 SdsApi::SdsApi(Server::Instance& server, const envoy::api::v2::core::ConfigSource& sds_config,
                std::string sds_config_name)
-    : server_(server), sds_config_(sds_config), sds_config_name_(sds_config_name) {
+    : server_(server), sds_config_(sds_config), sds_config_name_(sds_config_name), secret_hash_(0) {
   server_.initManager().registerTarget(*this);
 }
 
