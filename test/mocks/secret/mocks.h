@@ -19,7 +19,7 @@ public:
   MOCK_METHOD2(findOrCreateDynamicTlsCertificateSecretProvider,
                DynamicTlsCertificateSecretProviderSharedPtr(
                    const envoy::api::v2::core::ConfigSource& config_source,
-                   std::string config_name));
+                   const std::string& config_name));
 };
 
 class MockDynamicTlsCertificateSecretProvider : public DynamicTlsCertificateSecretProvider {
