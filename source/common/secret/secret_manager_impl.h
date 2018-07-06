@@ -1,6 +1,5 @@
 #pragma once
 
-#include <shared_mutex>
 #include <unordered_map>
 
 #include "envoy/secret/secret_manager.h"
@@ -21,7 +20,8 @@ public:
   const Ssl::TlsCertificateConfig* findStaticTlsCertificate(const std::string& name) const override;
 
   DynamicTlsCertificateSecretProviderSharedPtr findOrCreateDynamicTlsCertificateSecretProvider(
-      const envoy::api::v2::core::ConfigSource& config_source, std::string config_name) override;
+      const envoy::api::v2::core::ConfigSource& config_source,
+      const std::string& config_name) override;
 
 private:
   Server::Instance& server_;

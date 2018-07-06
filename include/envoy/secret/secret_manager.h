@@ -39,7 +39,7 @@ public:
    */
   virtual DynamicTlsCertificateSecretProviderSharedPtr
   findOrCreateDynamicTlsCertificateSecretProvider(
-      const envoy::api::v2::core::ConfigSource& config_source, std::string config_name) PURE;
+      const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name) PURE;
 };
 
 } // namespace Secret

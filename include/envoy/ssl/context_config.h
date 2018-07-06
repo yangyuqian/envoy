@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "envoy/common/pure.h"
-#include "envoy/secret/dynamic_secret_provider.h"
 
 namespace Envoy {
 namespace Ssl {
