@@ -21,8 +21,8 @@ envoy_cc_library(
     hdrs = ["secret_manager.h"],
     deps = [
         ":dynamic_secret_provider_interface",
+        "//include/envoy/init:init_interface",
         "@envoy_api//envoy/api/v2/auth:cert_cc",
         "@envoy_api//envoy/api/v2/core:config_source_cc",
-        "//include/envoy/init:init_interface",
     ],
 )
