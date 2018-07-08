@@ -57,8 +57,7 @@ public:
 
 protected:
   ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
-                    Secret::SecretManager& secret_manager, 
-                    Init::Manager& init_manager);
+                    Secret::SecretManager& secret_manager, Init::Manager& init_manager);
 
 private:
   static unsigned

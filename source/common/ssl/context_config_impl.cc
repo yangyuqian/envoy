@@ -35,8 +35,7 @@ const std::string ContextConfigImpl::DEFAULT_ECDH_CURVES = "X25519:P-256";
 ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
                                      Secret::SecretManager& secret_manager,
                                      Init::Manager& init_manager)
-    : secret_manager_(secret_manager),
-      init_manager_(init_manager),
+    : secret_manager_(secret_manager), init_manager_(init_manager),
       alpn_protocols_(RepeatedPtrUtil::join(config.alpn_protocols(), ",")),
       alt_alpn_protocols_(config.deprecated_v1().alt_alpn_protocols()),
       cipher_suites_(StringUtil::nonEmptyStringOrDefault(
@@ -174,8 +173,7 @@ ClientContextConfigImpl::ClientContextConfigImpl(const Json::Object& config,
             Config::TlsContextJson::translateUpstreamTlsContext(config, upstream_tls_context);
             return upstream_tls_context;
           }(),
-          secret_manager,
-          init_manager) {}
+          secret_manager, init_manager) {}
 
 ServerContextConfigImpl::ServerContextConfigImpl(
     const envoy::api::v2::auth::DownstreamTlsContext& config, Secret::SecretManager& secret_manager,
@@ -220,8 +218,7 @@ ServerContextConfigImpl::ServerContextConfigImpl(const Json::Object& config,
             Config::TlsContextJson::translateDownstreamTlsContext(config, downstream_tls_context);
             return downstream_tls_context;
           }(),
-          secret_manager,
-          init_manager) {}
+          secret_manager, init_manager) {}
 
 // Append a SessionTicketKey to keys, initializing it with key_data.
 // Throws if key_data is invalid.

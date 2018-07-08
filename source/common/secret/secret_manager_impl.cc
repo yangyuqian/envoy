@@ -35,7 +35,8 @@ SecretManagerImpl::findOrCreateDynamicTlsCertificateSecretProvider(
 
   auto dynamic_secret_provider = dynamic_secret_providers_[map_key].lock();
   if (!dynamic_secret_provider) {
-    dynamic_secret_provider = std::make_shared<SdsApi>(server_, init_manager, sds_config_source, config_name);
+    dynamic_secret_provider =
+        std::make_shared<SdsApi>(server_, init_manager, sds_config_source, config_name);
     dynamic_secret_providers_[map_key] = dynamic_secret_provider;
   }
 

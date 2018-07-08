@@ -481,7 +481,7 @@ protected:
    * over and determines if there is an initial health check pass needed, etc.
    */
   void onPreInitComplete();
-  
+
   Server::InitManagerImpl sds_init_manager_;
   Runtime::Loader& runtime_;
   ClusterInfoConstSharedPtr

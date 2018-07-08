@@ -37,7 +37,7 @@ public:
 
   /**
    * Return the instance of init manager.
-   */ 
+   */
   virtual Init::Manager& initManager() PURE;
 };
 
