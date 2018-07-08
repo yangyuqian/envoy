@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "envoy/api/v2/auth/cert.pb.h"
+#include "envoy/init/init.h"
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/context_config.h"
 
@@ -56,7 +57,8 @@ public:
 
 protected:
   ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
-                    Secret::SecretManager& secret_manager);
+                    Secret::SecretManager& secret_manager, 
+                    Init::Manager& init_manager);
 
 private:
   static unsigned
@@ -68,6 +70,7 @@ private:
   static const std::string DEFAULT_ECDH_CURVES;
 
   Secret::SecretManager& secret_manager_;
+  Init::Manager& init_manager_;
   Secret::DynamicTlsCertificateSecretProviderSharedPtr secret_provider_;
   std::string cert_chain_;
   std::string private_key_;
@@ -92,9 +95,11 @@ private:
 class ClientContextConfigImpl : public ContextConfigImpl, public ClientContextConfig {
 public:
   explicit ClientContextConfigImpl(const envoy::api::v2::auth::UpstreamTlsContext& config,
-                                   Secret::SecretManager& secret_manager);
+                                   Secret::SecretManager& secret_manager,
+                                   Init::Manager& init_manager);
   explicit ClientContextConfigImpl(const Json::Object& config,
-                                   Secret::SecretManager& secret_manager);
+                                   Secret::SecretManager& secret_manager,
+                                   Init::Manager& init_manager);
 
   // Ssl::ClientContextConfig
   const std::string& serverNameIndication() const override { return server_name_indication_; }
@@ -108,9 +113,11 @@ private:
 class ServerContextConfigImpl : public ContextConfigImpl, public ServerContextConfig {
 public:
   explicit ServerContextConfigImpl(const envoy::api::v2::auth::DownstreamTlsContext& config,
-                                   Secret::SecretManager& secret_manager);
+                                   Secret::SecretManager& secret_manager,
+                                   Init::Manager& init_manager);
   explicit ServerContextConfigImpl(const Json::Object& config,
-                                   Secret::SecretManager& secret_manager);
+                                   Secret::SecretManager& secret_manager,
+                                   Init::Manager& init_manager);
 
   // Ssl::ServerContextConfig
   bool requireClientCertificate() const override { return require_client_certificate_; }

@@ -7,6 +7,7 @@
 #include "common/secret/sds_api.h"
 
 #include "test/mocks/grpc/mocks.h"
+#include "test/mocks/init/mocks.h"
 #include "test/mocks/server/mocks.h"
 #include "test/test_common/environment.h"
 #include "test/test_common/utility.h"
@@ -28,7 +29,8 @@ TEST_F(SdsApiTest, BasicTest) {
   ::testing::InSequence s;
   const envoy::service::discovery::v2::SdsDummy dummy;
   NiceMock<Server::MockInstance> server;
-  EXPECT_CALL(server.init_manager_, registerTarget(_));
+  NiceMock<Init::MockManager> init_manager;
+  EXPECT_CALL(init_manager, registerTarget(_));
 
   envoy::api::v2::core::ConfigSource config_source;
   config_source.mutable_api_config_source()->set_api_type(
@@ -37,7 +39,7 @@ TEST_F(SdsApiTest, BasicTest) {
   auto google_grpc = grpc_service->mutable_google_grpc();
   google_grpc->set_target_uri("fake_address");
   google_grpc->set_stat_prefix("test");
-  SdsApi sds_api(server, config_source, "abc.com");
+  SdsApi sds_api(server, init_manager, config_source, "abc.com");
 
   NiceMock<Grpc::MockAsyncClient>* grpc_client{new NiceMock<Grpc::MockAsyncClient>()};
   NiceMock<Grpc::MockAsyncClientFactory>* factory{new NiceMock<Grpc::MockAsyncClientFactory>()};
@@ -48,15 +50,15 @@ TEST_F(SdsApiTest, BasicTest) {
   EXPECT_CALL(*factory, create()).WillOnce(Invoke([grpc_client] {
     return Grpc::AsyncClientPtr{grpc_client};
   }));
-  EXPECT_CALL(server.init_manager_.initialized_, ready());
-  server.init_manager_.initialize();
+  EXPECT_CALL(init_manager.initialized_, ready());
+  init_manager.initialize();
 }
 
 TEST_F(SdsApiTest, SecretUpdateSuccess) {
   Server::MockInstance server;
+  NiceMock<Init::MockManager> init_manager;
   envoy::api::v2::core::ConfigSource config_source;
-  EXPECT_CALL(server, initManager());
-  SdsApi sds_api(server, config_source, "abc.com");
+  SdsApi sds_api(server, init_manager, config_source, "abc.com");
 
   std::string yaml =
       R"EOF(
@@ -84,9 +86,9 @@ TEST_F(SdsApiTest, SecretUpdateSuccess) {
 
 TEST_F(SdsApiTest, EmptyResource) {
   Server::MockInstance server;
+  NiceMock<Init::MockManager> init_manager;
   envoy::api::v2::core::ConfigSource config_source;
-  EXPECT_CALL(server, initManager());
-  SdsApi sds_api(server, config_source, "abc.com");
+  SdsApi sds_api(server, init_manager, config_source, "abc.com");
 
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
   sds_api.onConfigUpdate(secret_resources, "");
@@ -95,9 +97,9 @@ TEST_F(SdsApiTest, EmptyResource) {
 
 TEST_F(SdsApiTest, SecretUpdateWrongSize) {
   Server::MockInstance server;
+  NiceMock<Init::MockManager> init_manager;
   envoy::api::v2::core::ConfigSource config_source;
-  EXPECT_CALL(server, initManager());
-  SdsApi sds_api(server, config_source, "abc.com");
+  SdsApi sds_api(server, init_manager, config_source, "abc.com");
 
   std::string yaml =
       R"EOF(
@@ -121,9 +123,9 @@ TEST_F(SdsApiTest, SecretUpdateWrongSize) {
 
 TEST_F(SdsApiTest, SecretUpdateWrongSecretName) {
   Server::MockInstance server;
+  NiceMock<Init::MockManager> init_manager;
   envoy::api::v2::core::ConfigSource config_source;
-  EXPECT_CALL(server, initManager());
-  SdsApi sds_api(server, config_source, "abc.com");
+  SdsApi sds_api(server, init_manager, config_source, "abc.com");
 
   std::string yaml =
       R"EOF(

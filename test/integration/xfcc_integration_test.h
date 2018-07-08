@@ -57,6 +57,7 @@ private:
   Network::TransportSocketFactoryPtr client_mtls_ssl_ctx_;
   Network::TransportSocketFactoryPtr upstream_ssl_ctx_;
   Server::MockInstance server_;
+  NiceMock<Init::MockManager> init_manager_;
 };
 } // namespace Xfcc
 } // namespace Envoy

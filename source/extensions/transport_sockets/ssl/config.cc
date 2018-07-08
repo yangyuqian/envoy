@@ -20,7 +20,8 @@ Network::TransportSocketFactoryPtr UpstreamSslSocketFactory::createTransportSock
       Ssl::ClientContextConfigImpl(
           MessageUtil::downcastAndValidate<const envoy::api::v2::auth::UpstreamTlsContext&>(
               message),
-          context.secretManager()),
+          context.secretManager(),
+          context.initManager()),
       context.sslContextManager(), context.statsScope());
 }
 
@@ -39,7 +40,8 @@ Network::TransportSocketFactoryPtr DownstreamSslSocketFactory::createTransportSo
       Ssl::ServerContextConfigImpl(
           MessageUtil::downcastAndValidate<const envoy::api::v2::auth::DownstreamTlsContext&>(
               message),
-          context.secretManager()),
+          context.secretManager(),
+          context.initManager()),
       context.sslContextManager(), context.statsScope(), server_names);
 }
 

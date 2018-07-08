@@ -3,6 +3,7 @@
 #include <string>
 
 #include "envoy/api/v2/auth/cert.pb.h"
+#include "envoy/init/init.h"
 #include "envoy/secret/dynamic_secret_provider.h"
 #include "envoy/ssl/tls_certificate_config.h"
 
@@ -39,7 +40,8 @@ public:
    */
   virtual DynamicTlsCertificateSecretProviderSharedPtr
   findOrCreateDynamicTlsCertificateSecretProvider(
-      const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name) PURE;
+      const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name,
+      Init::Manager& init_manager) PURE;
 };
 
 } // namespace Secret

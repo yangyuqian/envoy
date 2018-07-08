@@ -267,7 +267,8 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
                                  const envoy::api::v2::core::BindConfig& bind_config,
                                  Runtime::Loader& runtime, Stats::Store& stats,
                                  Ssl::ContextManager& ssl_context_manager,
-                                 Secret::SecretManager& secret_manager, bool added_via_api)
+                                 Secret::SecretManager& secret_manager, 
+                                 Init::Manager& init_manager, bool added_via_api)
     : runtime_(runtime), name_(config.name()), type_(config.type()),
       max_requests_per_connection_(
           PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, max_requests_per_connection, 0)),
@@ -291,7 +292,8 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
       metadata_(config.metadata()), common_lb_config_(config.common_lb_config()),
       cluster_socket_options_(parseClusterSocketOptions(config, bind_config)),
       drain_connections_on_host_removal_(config.drain_connections_on_host_removal()),
-      secret_manager_(secret_manager) {
+      secret_manager_(secret_manager),
+      init_manager_(init_manager) {
 
   // If the cluster doesn't have a transport socket configured, override with the default transport
   // socket implementation based on the tls_context. We copy by value first then override if
@@ -441,7 +443,7 @@ ClusterImplBase::ClusterImplBase(const envoy::api::v2::Cluster& cluster,
                                  Secret::SecretManager& secret_manager, bool added_via_api)
     : runtime_(runtime),
       info_(new ClusterInfoImpl(cluster, bind_config, runtime, stats, ssl_context_manager,
-                                secret_manager, added_via_api)) {
+                                secret_manager, sds_init_manager_, added_via_api)) {
   // Create the default (empty) priority set before registering callbacks to
   // avoid getting an update the first time it is accessed.
   priority_set_.getOrCreateHostSet(0);
@@ -505,6 +507,8 @@ void ClusterImplBase::onPreInitComplete() {
     for (auto& host_set : prioritySet().hostSetsPerPriority()) {
       pending_initialize_health_checks_ += host_set->hosts().size();
     }
+
+    sds_init_manager_.initialize([]() -> void {});
 
     // TODO(mattklein123): Remove this callback when done.
     health_checker_->addHostCheckCompleteCb([this](HostSharedPtr, HealthTransition) -> void {

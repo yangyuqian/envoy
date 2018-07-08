@@ -66,9 +66,10 @@ tls_certificate:
 
 TEST_F(SecretManagerImplTest, SdsDynamicSecretUpdateSuccess) {
   MockServer server;
+  NiceMock<Init::MockManager> init_manager;
   envoy::api::v2::core::ConfigSource config_source;
   auto secret_provider = server.secretManager().findOrCreateDynamicTlsCertificateSecretProvider(
-      config_source, "abc.com");
+      config_source, "abc.com", init_manager);
 
   std::string yaml =
       R"EOF(

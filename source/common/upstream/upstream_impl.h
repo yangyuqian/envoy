@@ -14,6 +14,7 @@
 #include "envoy/api/v2/core/base.pb.h"
 #include "envoy/api/v2/endpoint/endpoint.pb.h"
 #include "envoy/event/timer.h"
+#include "envoy/init/init.h"
 #include "envoy/local_info/local_info.h"
 #include "envoy/network/dns.h"
 #include "envoy/runtime/runtime.h"
@@ -37,6 +38,8 @@
 #include "common/upstream/locality.h"
 #include "common/upstream/outlier_detection_impl.h"
 #include "common/upstream/resource_manager_impl.h"
+
+#include "server/init_manager_impl.h"
 
 namespace Envoy {
 namespace Upstream {
@@ -313,7 +316,8 @@ public:
   ClusterInfoImpl(const envoy::api::v2::Cluster& config,
                   const envoy::api::v2::core::BindConfig& bind_config, Runtime::Loader& runtime,
                   Stats::Store& stats, Ssl::ContextManager& ssl_context_manager,
-                  Secret::SecretManager& secret_manager, bool added_via_api);
+                  Secret::SecretManager& secret_manager, Init::Manager& init_manager,
+                  bool added_via_api);
 
   static ClusterStats generateStats(Stats::Scope& scope);
   static ClusterLoadReportStats generateLoadReportStats(Stats::Scope& scope);
@@ -365,6 +369,8 @@ public:
 
   Secret::SecretManager& secretManager() override { return secret_manager_; }
 
+  Init::Manager& initManager() override { return init_manager_; }
+
 private:
   struct ResourceManagers {
     ResourceManagers(const envoy::api::v2::Cluster& config, Runtime::Loader& runtime,
@@ -405,6 +411,7 @@ private:
   const Network::ConnectionSocket::OptionsSharedPtr cluster_socket_options_;
   const bool drain_connections_on_host_removal_;
   Secret::SecretManager& secret_manager_;
+  Init::Manager& init_manager_;
 };
 
 /**
@@ -474,7 +481,8 @@ protected:
    * over and determines if there is an initial health check pass needed, etc.
    */
   void onPreInitComplete();
-
+  
+  Server::InitManagerImpl sds_init_manager_;
   Runtime::Loader& runtime_;
   ClusterInfoConstSharedPtr
       info_; // This cluster info stores the stats scope so it must be initialized first

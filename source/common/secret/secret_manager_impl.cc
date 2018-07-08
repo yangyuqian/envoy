@@ -28,13 +28,14 @@ SecretManagerImpl::findStaticTlsCertificate(const std::string& name) const {
 
 DynamicTlsCertificateSecretProviderSharedPtr
 SecretManagerImpl::findOrCreateDynamicTlsCertificateSecretProvider(
-    const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name) {
+    const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name,
+    Init::Manager& init_manager) {
   auto hash = MessageUtil::hash(sds_config_source);
   std::string map_key = std::to_string(hash) + config_name;
 
   auto dynamic_secret_provider = dynamic_secret_providers_[map_key].lock();
   if (!dynamic_secret_provider) {
-    dynamic_secret_provider = std::make_shared<SdsApi>(server_, sds_config_source, config_name);
+    dynamic_secret_provider = std::make_shared<SdsApi>(server_, init_manager, sds_config_source, config_name);
     dynamic_secret_providers_[map_key] = dynamic_secret_provider;
   }
 

@@ -13,5 +13,6 @@ public:
   }
 
   Server::MockInstance server_;
+  NiceMock<Init::MockManager> init_manager_;
 };
 } // namespace Envoy

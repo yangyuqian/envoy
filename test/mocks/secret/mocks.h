@@ -16,10 +16,11 @@ public:
 
   MOCK_METHOD1(addStaticSecret, void(const envoy::api::v2::auth::Secret& secret));
   MOCK_CONST_METHOD1(findStaticTlsCertificate, Ssl::TlsCertificateConfig*(const std::string& name));
-  MOCK_METHOD2(findOrCreateDynamicTlsCertificateSecretProvider,
+  MOCK_METHOD3(findOrCreateDynamicTlsCertificateSecretProvider,
                DynamicTlsCertificateSecretProviderSharedPtr(
                    const envoy::api::v2::core::ConfigSource& config_source,
-                   const std::string& config_name));
+                   const std::string& config_name,
+                   Init::Manager& init_manager));
 };
 
 class MockDynamicTlsCertificateSecretProvider : public DynamicTlsCertificateSecretProvider {

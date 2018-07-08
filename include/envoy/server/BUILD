@@ -174,6 +174,7 @@ envoy_cc_library(
     name = "transport_socket_config_interface",
     hdrs = ["transport_socket_config.h"],
     deps = [
+        "//include/envoy/init:init_interface",
         "//include/envoy/network:transport_socket_interface",
         "//include/envoy/secret:secret_manager_interface",
         "//include/envoy/ssl:context_manager_interface",

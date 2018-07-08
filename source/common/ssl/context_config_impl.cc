@@ -33,8 +33,10 @@ const std::string ContextConfigImpl::DEFAULT_CIPHER_SUITES =
 const std::string ContextConfigImpl::DEFAULT_ECDH_CURVES = "X25519:P-256";
 
 ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
-                                     Secret::SecretManager& secret_manager)
+                                     Secret::SecretManager& secret_manager,
+                                     Init::Manager& init_manager)
     : secret_manager_(secret_manager),
+      init_manager_(init_manager),
       alpn_protocols_(RepeatedPtrUtil::join(config.alpn_protocols(), ",")),
       alt_alpn_protocols_(config.deprecated_v1().alt_alpn_protocols()),
       cipher_suites_(StringUtil::nonEmptyStringOrDefault(
@@ -104,7 +106,7 @@ void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTl
       }
     } else {
       secret_provider_ = secret_manager_.findOrCreateDynamicTlsCertificateSecretProvider(
-          config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name);
+          config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name, init_manager_);
       return;
     }
   }
@@ -147,8 +149,9 @@ const std::string& ContextConfigImpl::privateKey() const {
 }
 
 ClientContextConfigImpl::ClientContextConfigImpl(
-    const envoy::api::v2::auth::UpstreamTlsContext& config, Secret::SecretManager& secret_manager)
-    : ContextConfigImpl(config.common_tls_context(), secret_manager),
+    const envoy::api::v2::auth::UpstreamTlsContext& config, Secret::SecretManager& secret_manager,
+    Init::Manager& init_manager)
+    : ContextConfigImpl(config.common_tls_context(), secret_manager, init_manager),
       server_name_indication_(config.sni()), allow_renegotiation_(config.allow_renegotiation()) {
   // BoringSSL treats this as a C string, so embedded NULL characters will not
   // be handled correctly.
@@ -163,18 +166,21 @@ ClientContextConfigImpl::ClientContextConfigImpl(
 }
 
 ClientContextConfigImpl::ClientContextConfigImpl(const Json::Object& config,
-                                                 Secret::SecretManager& secret_manager)
+                                                 Secret::SecretManager& secret_manager,
+                                                 Init::Manager& init_manager)
     : ClientContextConfigImpl(
           [&config] {
             envoy::api::v2::auth::UpstreamTlsContext upstream_tls_context;
             Config::TlsContextJson::translateUpstreamTlsContext(config, upstream_tls_context);
             return upstream_tls_context;
           }(),
-          secret_manager) {}
+          secret_manager,
+          init_manager) {}
 
 ServerContextConfigImpl::ServerContextConfigImpl(
-    const envoy::api::v2::auth::DownstreamTlsContext& config, Secret::SecretManager& secret_manager)
-    : ContextConfigImpl(config.common_tls_context(), secret_manager),
+    const envoy::api::v2::auth::DownstreamTlsContext& config, Secret::SecretManager& secret_manager,
+    Init::Manager& init_manager)
+    : ContextConfigImpl(config.common_tls_context(), secret_manager, init_manager),
       require_client_certificate_(
           PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, require_client_certificate, false)),
       session_ticket_keys_([&config] {
@@ -206,14 +212,16 @@ ServerContextConfigImpl::ServerContextConfigImpl(
 }
 
 ServerContextConfigImpl::ServerContextConfigImpl(const Json::Object& config,
-                                                 Secret::SecretManager& secret_manager)
+                                                 Secret::SecretManager& secret_manager,
+                                                 Init::Manager& init_manager)
     : ServerContextConfigImpl(
           [&config] {
             envoy::api::v2::auth::DownstreamTlsContext downstream_tls_context;
             Config::TlsContextJson::translateDownstreamTlsContext(config, downstream_tls_context);
             return downstream_tls_context;
           }(),
-          secret_manager) {}
+          secret_manager,
+          init_manager) {}
 
 // Append a SessionTicketKey to keys, initializing it with key_data.
 // Throws if key_data is invalid.

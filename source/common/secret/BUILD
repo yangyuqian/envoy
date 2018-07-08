@@ -29,6 +29,7 @@ envoy_cc_library(
     deps = [
         "//include/envoy/config:subscription_interface",
         "//include/envoy/server:instance_interface",
+        "//include/envoy/init:init_interface",
         "//source/common/common:minimal_logger_lib",
         "//source/common/config:resources_lib",
         "//source/common/config:subscription_factory_lib",

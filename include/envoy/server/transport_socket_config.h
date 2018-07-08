@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "envoy/init/init.h"
 #include "envoy/network/transport_socket.h"
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/context_manager.h"
@@ -33,6 +34,11 @@ public:
    * Return the instance of secret manager.
    */
   virtual Secret::SecretManager& secretManager() PURE;
+
+  /**
+   * Return the instance of init manager.
+   */ 
+  virtual Init::Manager& initManager() PURE;
 };
 
 class TransportSocketConfigFactory {

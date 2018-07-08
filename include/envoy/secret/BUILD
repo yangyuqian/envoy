@@ -23,5 +23,6 @@ envoy_cc_library(
         ":dynamic_secret_provider_interface",
         "@envoy_api//envoy/api/v2/auth:cert_cc",
         "@envoy_api//envoy/api/v2/core:config_source_cc",
+        "//include/envoy/init:init_interface",
     ],
 )

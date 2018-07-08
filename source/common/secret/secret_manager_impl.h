@@ -21,7 +21,8 @@ public:
 
   DynamicTlsCertificateSecretProviderSharedPtr findOrCreateDynamicTlsCertificateSecretProvider(
       const envoy::api::v2::core::ConfigSource& config_source,
-      const std::string& config_name) override;
+      const std::string& config_name,
+      Init::Manager& init_manager) override;
 
 private:
   Server::Instance& server_;

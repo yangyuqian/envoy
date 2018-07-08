@@ -33,6 +33,7 @@ envoy_cc_test(
     deps = [
         "//source/common/secret:sds_api_lib",
         "//test/mocks/grpc:grpc_mocks",
+        "//test/mocks/init:init_mocks",
         "//test/mocks/server:server_mocks",
         "//test/test_common:environment_lib",
         "//test/test_common:registry_lib",
