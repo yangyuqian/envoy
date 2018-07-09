@@ -35,7 +35,7 @@ const std::string ContextConfigImpl::DEFAULT_ECDH_CURVES = "X25519:P-256";
 ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
                                      Secret::SecretManager& secret_manager,
                                      Init::Manager& init_manager)
-    : secret_manager_(secret_manager), init_manager_(init_manager),
+    : secret_manager_(secret_manager),
       alpn_protocols_(RepeatedPtrUtil::join(config.alpn_protocols(), ",")),
       alt_alpn_protocols_(config.deprecated_v1().alt_alpn_protocols()),
       cipher_suites_(StringUtil::nonEmptyStringOrDefault(
@@ -67,7 +67,7 @@ ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContex
           tlsVersionFromProto(config.tls_params().tls_minimum_protocol_version(), TLS1_VERSION)),
       max_protocol_version_(
           tlsVersionFromProto(config.tls_params().tls_maximum_protocol_version(), TLS1_2_VERSION)) {
-  readCertChainConfig(config);
+  readCertChainConfig(config, init_manager);
 
   if (ca_cert_.empty()) {
     if (!certificate_revocation_list_.empty()) {
@@ -85,7 +85,8 @@ ContextConfigImpl::ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContex
   }
 }
 
-void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config) {
+void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config,
+                                            Init::Manager& init_manager) {
   if (!config.tls_certificates().empty()) {
     cert_chain_ = Config::DataSource::read(config.tls_certificates()[0].certificate_chain(), true);
     private_key_ = Config::DataSource::read(config.tls_certificates()[0].private_key(), true);
@@ -105,7 +106,7 @@ void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTl
       }
     } else {
       secret_provider_ = secret_manager_.findOrCreateDynamicTlsCertificateSecretProvider(
-          config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name, init_manager_);
+          config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name, init_manager);
       return;
     }
   }

@@ -63,13 +63,13 @@ private:
   static unsigned
   tlsVersionFromProto(const envoy::api::v2::auth::TlsParameters_TlsProtocol& version,
                       unsigned default_version);
-  void readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config);
+  void readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config,
+                           Init::Manager& init_manager);
 
   static const std::string DEFAULT_CIPHER_SUITES;
   static const std::string DEFAULT_ECDH_CURVES;
 
   Secret::SecretManager& secret_manager_;
-  Init::Manager& init_manager_;
   Secret::DynamicTlsCertificateSecretProviderSharedPtr secret_provider_;
   std::string cert_chain_;
   std::string private_key_;

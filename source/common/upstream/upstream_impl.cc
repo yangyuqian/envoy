@@ -496,6 +496,10 @@ void ClusterImplBase::initialize(std::function<void()> callback) {
 }
 
 void ClusterImplBase::onPreInitComplete() {
+  sds_init_manager_.initialize([this]() { onSdsInitDone(); });
+}
+
+void ClusterImplBase::onSdsInitDone() {
   // Protect against multiple calls.
   if (initialization_started_) {
     return;
@@ -506,8 +510,6 @@ void ClusterImplBase::onPreInitComplete() {
     for (auto& host_set : prioritySet().hostSetsPerPriority()) {
       pending_initialize_health_checks_ += host_set->hosts().size();
     }
-
-    sds_init_manager_.initialize([]() -> void {});
 
     // TODO(mattklein123): Remove this callback when done.
     health_checker_->addHostCheckCompleteCb([this](HostSharedPtr, HealthTransition) -> void {

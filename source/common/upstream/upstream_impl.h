@@ -477,12 +477,19 @@ protected:
   virtual void startPreInit() PURE;
 
   /**
-   * Called by every concrete cluster when pre-init is complete. At this point, shared init takes
-   * over and determines if there is an initial health check pass needed, etc.
+   * Called by every concrete cluster when pre-init is complete. At this point, SDS init manager
+   * initializes every registered SDS api target.
    */
   void onPreInitComplete();
 
-  Server::InitManagerImpl sds_init_manager_;
+  /**
+   * Called by every concrete cluster after all Sds api targets registered at SDS init manager are
+   * initialized. At this point, shared init takes over and determines if there is an initial health
+   * check pass needed, etc.
+   */
+  void onSdsInitDone();
+
+  Server::InitManagerImpl sds_init_manager_; // This init manager is only used by SDS API targets.
   Runtime::Loader& runtime_;
   ClusterInfoConstSharedPtr
       info_; // This cluster info stores the stats scope so it must be initialized first
