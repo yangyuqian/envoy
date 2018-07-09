@@ -323,3 +323,11 @@ envoy_cc_library(
         "//source/common/common:thread_lib",
     ],
 )
+
+envoy_cc_library(
+    name = "transport_socket_config_lib",
+    hdrs = ["transport_socket_config_impl.h"],
+    deps = [
+        "//include/envoy/server:transport_socket_config_interface",
+    ],
+)

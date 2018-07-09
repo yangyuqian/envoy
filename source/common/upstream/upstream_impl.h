@@ -39,6 +39,7 @@
 #include "common/upstream/outlier_detection_impl.h"
 #include "common/upstream/resource_manager_impl.h"
 
+#include "server/transport_socket_config_impl.h"
 #include "server/init_manager_impl.h"
 
 namespace Envoy {
@@ -310,8 +311,7 @@ private:
 /**
  * Implementation of ClusterInfo that reads from JSON.
  */
-class ClusterInfoImpl : public ClusterInfo,
-                        public Server::Configuration::TransportSocketFactoryContext {
+class ClusterInfoImpl : public ClusterInfo {
 public:
   ClusterInfoImpl(const envoy::api::v2::Cluster& config,
                   const envoy::api::v2::core::BindConfig& bind_config, Runtime::Loader& runtime,
@@ -412,6 +412,7 @@ private:
   const bool drain_connections_on_host_removal_;
   Secret::SecretManager& secret_manager_;
   Init::Manager& init_manager_;
+  Server::Configuration::TransportSocketFactoryContext factory_context_;
 };
 
 /**
@@ -477,8 +478,9 @@ protected:
   virtual void startPreInit() PURE;
 
   /**
-   * Called by every concrete cluster when pre-init is complete. At this point, SDS init manager
-   * initializes every registered SDS api target.
+   * Called by every concrete cluster when pre-init is complete. At this point,
+   * shared init starts sds_init_manager_ initialization and determines if there
+   * is an initial health check pass needed, etc.
    */
   void onPreInitComplete();
 
