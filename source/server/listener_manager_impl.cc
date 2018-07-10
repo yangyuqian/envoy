@@ -129,7 +129,9 @@ ListenerImpl::ListenerImpl(const envoy::api::v2::Listener& config, const std::st
       listener_tag_(parent_.factory_.nextListenerTag()), name_(name), modifiable_(modifiable),
       workers_started_(workers_started), hash_(hash),
       local_drain_manager_(parent.factory_.createDrainManager(config.drain_type())),
-      config_(config), version_info_(version_info) {
+      config_(config), version_info_(version_info),
+      factory_context_(parent_.server_.sslContextManager(), *listener_scope_,
+                       parent_.server_.secretManager(), initManager()) {
   if (config.has_transparent()) {
     addListenSocketOptions(Network::SocketOptionFactory::buildIpTransparentOptions());
   }
@@ -233,9 +235,10 @@ ListenerImpl::ListenerImpl(const envoy::api::v2::Listener& config, const std::st
         filter_chain_match.application_protocols().begin(),
         filter_chain_match.application_protocols().end());
 
-    addFilterChain(server_names, filter_chain_match.transport_protocol(), application_protocols,
-                   config_factory.createTransportSocketFactory(*message, *this, server_names),
-                   parent_.factory_.createNetworkFilterFactoryList(filter_chain.filters(), *this));
+    addFilterChain(
+        server_names, filter_chain_match.transport_protocol(), application_protocols,
+        config_factory.createTransportSocketFactory(*message, factory_context_, server_names),
+        parent_.factory_.createNetworkFilterFactoryList(filter_chain.filters(), *this));
 
     need_tls_inspector |= filter_chain_match.transport_protocol() == "tls" ||
                           (filter_chain_match.transport_protocol().empty() &&

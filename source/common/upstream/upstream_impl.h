@@ -19,7 +19,6 @@
 #include "envoy/network/dns.h"
 #include "envoy/runtime/runtime.h"
 #include "envoy/secret/secret_manager.h"
-#include "envoy/server/transport_socket_config.h"
 #include "envoy/ssl/context_manager.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
@@ -39,8 +38,8 @@
 #include "common/upstream/outlier_detection_impl.h"
 #include "common/upstream/resource_manager_impl.h"
 
-#include "server/transport_socket_config_impl.h"
 #include "server/init_manager_impl.h"
+#include "server/transport_socket_config_impl.h"
 
 namespace Envoy {
 namespace Upstream {
@@ -358,18 +357,11 @@ public:
   const LoadBalancerSubsetInfo& lbSubsetInfo() const override { return lb_subset_; }
   const envoy::api::v2::core::Metadata& metadata() const override { return metadata_; }
 
-  // Server::Configuration::TransportSocketFactoryContext
-  Ssl::ContextManager& sslContextManager() override { return ssl_context_manager_; }
-
   const Network::ConnectionSocket::OptionsSharedPtr& clusterSocketOptions() const override {
     return cluster_socket_options_;
   };
 
   bool drainConnectionsOnHostRemoval() const override { return drain_connections_on_host_removal_; }
-
-  Secret::SecretManager& secretManager() override { return secret_manager_; }
-
-  Init::Manager& initManager() override { return init_manager_; }
 
 private:
   struct ResourceManagers {
@@ -403,16 +395,13 @@ private:
   const Network::Address::InstanceConstSharedPtr source_address_;
   LoadBalancerType lb_type_;
   absl::optional<envoy::api::v2::Cluster::RingHashLbConfig> lb_ring_hash_config_;
-  Ssl::ContextManager& ssl_context_manager_;
   const bool added_via_api_;
   LoadBalancerSubsetInfoImpl lb_subset_;
   const envoy::api::v2::core::Metadata metadata_;
   const envoy::api::v2::Cluster::CommonLbConfig common_lb_config_;
   const Network::ConnectionSocket::OptionsSharedPtr cluster_socket_options_;
   const bool drain_connections_on_host_removal_;
-  Secret::SecretManager& secret_manager_;
-  Init::Manager& init_manager_;
-  Server::Configuration::TransportSocketFactoryContext factory_context_;
+  Server::Configuration::TransportSocketFactoryContextImpl factory_context_;
 };
 
 /**
@@ -491,8 +480,9 @@ protected:
    */
   void onSdsInitDone();
 
-  Server::InitManagerImpl sds_init_manager_; // This init manager is only used by SDS API targets.
   Runtime::Loader& runtime_;
+  Server::InitManagerImplPtr
+      sds_init_manager_; // This init manager is only used by SDS API targets.
   ClusterInfoConstSharedPtr
       info_; // This cluster info stores the stats scope so it must be initialized first
              // and destroyed last.

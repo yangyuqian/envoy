@@ -1,6 +1,7 @@
 #pragma once
 
 #include <list>
+#include <memory>
 
 #include "envoy/init/init.h"
 
@@ -26,6 +27,8 @@ private:
   State state_{State::NotInitialized};
   std::function<void()> callback_;
 };
+
+typedef std::unique_ptr<InitManagerImpl> InitManagerImplPtr;
 
 } // namespace Server
 } // namespace Envoy

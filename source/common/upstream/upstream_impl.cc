@@ -287,12 +287,12 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
       maintenance_mode_runtime_key_(fmt::format("upstream.maintenance_mode.{}", name_)),
       source_address_(getSourceAddress(config, bind_config)),
       lb_ring_hash_config_(envoy::api::v2::Cluster::RingHashLbConfig(config.ring_hash_lb_config())),
-      ssl_context_manager_(ssl_context_manager), added_via_api_(added_via_api),
+      added_via_api_(added_via_api),
       lb_subset_(LoadBalancerSubsetInfoImpl(config.lb_subset_config())),
       metadata_(config.metadata()), common_lb_config_(config.common_lb_config()),
       cluster_socket_options_(parseClusterSocketOptions(config, bind_config)),
       drain_connections_on_host_removal_(config.drain_connections_on_host_removal()),
-      secret_manager_(secret_manager), init_manager_(init_manager) {
+      factory_context_(ssl_context_manager, *stats_scope_, secret_manager, init_manager) {
   // If the cluster doesn't have a transport socket configured, override with the default transport
   // socket implementation based on the tls_context. We copy by value first then override if
   // necessary.
@@ -311,7 +311,8 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
       Server::Configuration::UpstreamTransportSocketConfigFactory>(transport_socket.name());
   ProtobufTypes::MessagePtr message =
       Config::Utility::translateToFactoryConfig(transport_socket, config_factory);
-  transport_socket_factory_ = config_factory.createTransportSocketFactory(*message, *this);
+  transport_socket_factory_ =
+      config_factory.createTransportSocketFactory(*message, factory_context_);
 
   switch (config.lb_policy()) {
   case envoy::api::v2::Cluster::ROUND_ROBIN:
@@ -439,9 +440,9 @@ ClusterImplBase::ClusterImplBase(const envoy::api::v2::Cluster& cluster,
                                  Runtime::Loader& runtime, Stats::Store& stats,
                                  Ssl::ContextManager& ssl_context_manager,
                                  Secret::SecretManager& secret_manager, bool added_via_api)
-    : runtime_(runtime),
+    : runtime_(runtime), sds_init_manager_(new Server::InitManagerImpl()),
       info_(new ClusterInfoImpl(cluster, bind_config, runtime, stats, ssl_context_manager,
-                                secret_manager, sds_init_manager_, added_via_api)) {
+                                secret_manager, *sds_init_manager_.get(), added_via_api)) {
   // Create the default (empty) priority set before registering callbacks to
   // avoid getting an update the first time it is accessed.
   priority_set_.getOrCreateHostSet(0);
@@ -495,7 +496,12 @@ void ClusterImplBase::initialize(std::function<void()> callback) {
 }
 
 void ClusterImplBase::onPreInitComplete() {
-  sds_init_manager_.initialize([this]() { onSdsInitDone(); });
+  if (sds_init_manager_) {
+    sds_init_manager_->initialize([this]() { onSdsInitDone(); });
+    sds_init_manager_.reset();
+  } else {
+    onSdsInitDone();
+  }
 }
 
 void ClusterImplBase::onSdsInitDone() {

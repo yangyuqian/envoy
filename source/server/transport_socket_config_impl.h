@@ -10,9 +10,8 @@ namespace Configuration {
  * Implementation of TransportSocketFactoryContext.
  */
 class TransportSocketFactoryContextImpl : public TransportSocketFactoryContext {
- public:
-  TransportSocketFactoryContextImpl(Ssl::ContextManager& context_manager,
-                                    Stats::Scope& stats_scope,
+public:
+  TransportSocketFactoryContextImpl(Ssl::ContextManager& context_manager, Stats::Scope& stats_scope,
                                     Secret::SecretManager& secret_manager,
                                     Init::Manager& init_manager)
       : context_manager_(context_manager), stats_scope_(stats_scope),
@@ -26,7 +25,7 @@ class TransportSocketFactoryContextImpl : public TransportSocketFactoryContext {
 
   Init::Manager& initManager() override { return init_manager_; }
 
- private:
+private:
   Ssl::ContextManager& context_manager_;
   Stats::Scope& stats_scope_;
   Secret::SecretManager& secret_manager_;
