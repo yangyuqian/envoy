@@ -401,7 +401,6 @@ private:
   const envoy::api::v2::Cluster::CommonLbConfig common_lb_config_;
   const Network::ConnectionSocket::OptionsSharedPtr cluster_socket_options_;
   const bool drain_connections_on_host_removal_;
-  Server::Configuration::TransportSocketFactoryContextImpl factory_context_;
 };
 
 /**
@@ -469,7 +468,8 @@ protected:
   /**
    * Called by every concrete cluster when pre-init is complete. At this point,
    * shared init starts sds_init_manager_ initialization and determines if there
-   * is an initial health check pass needed, etc.
+   * is an initial health check pass needed, etc. onPreInitComplete() may be called
+   * multiple times, but sds_init_manager_ only can be called once.
    */
   void onPreInitComplete();
 

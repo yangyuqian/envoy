@@ -291,8 +291,7 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
       lb_subset_(LoadBalancerSubsetInfoImpl(config.lb_subset_config())),
       metadata_(config.metadata()), common_lb_config_(config.common_lb_config()),
       cluster_socket_options_(parseClusterSocketOptions(config, bind_config)),
-      drain_connections_on_host_removal_(config.drain_connections_on_host_removal()),
-      factory_context_(ssl_context_manager, *stats_scope_, secret_manager, init_manager) {
+      drain_connections_on_host_removal_(config.drain_connections_on_host_removal()) {
   // If the cluster doesn't have a transport socket configured, override with the default transport
   // socket implementation based on the tls_context. We copy by value first then override if
   // necessary.
@@ -307,12 +306,14 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
     }
   }
 
+  Server::Configuration::TransportSocketFactoryContextImpl factory_context(
+      ssl_context_manager, *stats_scope_, secret_manager, init_manager);
   auto& config_factory = Config::Utility::getAndCheckFactory<
       Server::Configuration::UpstreamTransportSocketConfigFactory>(transport_socket.name());
   ProtobufTypes::MessagePtr message =
       Config::Utility::translateToFactoryConfig(transport_socket, config_factory);
   transport_socket_factory_ =
-      config_factory.createTransportSocketFactory(*message, factory_context_);
+      config_factory.createTransportSocketFactory(*message, factory_context);
 
   switch (config.lb_policy()) {
   case envoy::api::v2::Cluster::ROUND_ROBIN:

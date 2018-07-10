@@ -351,7 +351,6 @@ private:
   const envoy::api::v2::Listener config_;
   const std::string version_info_;
   Network::Socket::OptionsSharedPtr listen_socket_options_;
-  Server::Configuration::TransportSocketFactoryContextImpl factory_context_;
 };
 
 class FilterChainImpl : public Network::FilterChain {
