@@ -55,6 +55,11 @@ public:
   unsigned minProtocolVersion() const override { return min_protocol_version_; };
   unsigned maxProtocolVersion() const override { return max_protocol_version_; };
 
+  bool isValid() const override {
+    // either secret_provider_ is nullptr or secret_provider_->secret() is NOT nullptr.
+    return !secret_provider_ || secret_provider_->secret();
+  }
+
 protected:
   ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
                     Secret::SecretManager& secret_manager, Init::Manager& init_manager);

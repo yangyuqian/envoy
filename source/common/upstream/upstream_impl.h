@@ -314,8 +314,7 @@ class ClusterInfoImpl : public ClusterInfo {
 public:
   ClusterInfoImpl(const envoy::api::v2::Cluster& config,
                   const envoy::api::v2::core::BindConfig& bind_config, Runtime::Loader& runtime,
-                  Stats::Store& stats, Ssl::ContextManager& ssl_context_manager,
-                  Secret::SecretManager& secret_manager, Init::Manager& init_manager,
+                  Network::TransportSocketFactoryPtr socket_factory, Stats::Scope* stats_scope,
                   bool added_via_api);
 
   static ClusterStats generateStats(Stats::Scope& scope);
@@ -383,11 +382,11 @@ private:
   const std::chrono::milliseconds connect_timeout_;
   absl::optional<std::chrono::milliseconds> idle_timeout_;
   const uint32_t per_connection_buffer_limit_bytes_;
-  Stats::ScopePtr stats_scope_;
-  mutable ClusterStats stats_;
   Stats::IsolatedStoreImpl load_report_stats_store_;
   mutable ClusterLoadReportStats load_report_stats_;
   Network::TransportSocketFactoryPtr transport_socket_factory_;
+  Stats::ScopePtr stats_scope_;
+  mutable ClusterStats stats_;
   const uint64_t features_;
   const Http::Http2Settings http2_settings_;
   mutable ResourceManagers resource_managers_;
@@ -468,8 +467,7 @@ protected:
   /**
    * Called by every concrete cluster when pre-init is complete. At this point,
    * shared init starts init_manager_ initialization and determines if there
-   * is an initial health check pass needed, etc. onPreInitComplete() may be called
-   * multiple times, but init_manager_ only can be called once.
+   * is an initial health check pass needed, etc.
    */
   void onPreInitComplete();
 
@@ -481,7 +479,8 @@ protected:
   void onInitDone();
 
   Runtime::Loader& runtime_;
-  Server::InitManagerImplPtr init_manager_;
+  Server::InitManagerImpl init_manager_;
+  Stats::ScopePtr stats_scope_;
   ClusterInfoConstSharedPtr
       info_; // This cluster info stores the stats scope so it must be initialized first
              // and destroyed last.
@@ -492,6 +491,11 @@ protected:
   PrioritySetImpl priority_set_;
 
 private:
+  Network::TransportSocketFactoryPtr
+  createTransportSocketFactory(const envoy::api::v2::Cluster& config, Stats::Scope& stats_scope,
+                               Ssl::ContextManager& ssl_context_manager,
+                               Secret::SecretManager& secret_manager, Init::Manager& init_manager);
+  Stats::ScopePtr generateStatsScope(const envoy::api::v2::Cluster& config, Stats::Store& stats);
   void finishInitialization();
   void reloadHealthyHosts();
 

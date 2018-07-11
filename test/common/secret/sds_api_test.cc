@@ -91,8 +91,9 @@ TEST_F(SdsApiTest, EmptyResource) {
   SdsApi sds_api(server, init_manager, config_source, "abc.com");
 
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
-  sds_api.onConfigUpdate(secret_resources, "");
-  EXPECT_EQ(nullptr, sds_api.secret());
+
+  EXPECT_THROW_WITH_MESSAGE(sds_api.onConfigUpdate(secret_resources, ""), EnvoyException,
+                            "Missing SDS resources for abc.com in onConfigUpdate()");
 }
 
 TEST_F(SdsApiTest, SecretUpdateWrongSize) {

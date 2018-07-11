@@ -28,7 +28,5 @@ private:
   std::function<void()> callback_;
 };
 
-typedef std::unique_ptr<InitManagerImpl> InitManagerImplPtr;
-
 } // namespace Server
 } // namespace Envoy

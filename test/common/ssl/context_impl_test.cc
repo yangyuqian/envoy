@@ -458,6 +458,8 @@ TEST(ClientContextConfigImplTest, SdsConfig) {
   sds_secret_configs->mutable_sds_config();
   ClientContextConfigImpl client_context_config(tls_context, server.secretManager(), init_manager);
 
+  // When sds secret is not downloaded, config is not valid.
+  EXPECT_FALSE(client_context_config.isValid());
   EXPECT_EQ("", client_context_config.certChain());
   EXPECT_EQ("", client_context_config.privateKey());
 
@@ -586,6 +588,8 @@ TEST(ServerContextConfigImplTest, SdsConfig) {
   sds_secret_configs->mutable_sds_config();
   ServerContextConfigImpl server_context_config(tls_context, server.secretManager(), init_manager);
 
+  // When sds secret is not downloaded, config is not valid.
+  EXPECT_FALSE(server_context_config.isValid());
   EXPECT_EQ("", server_context_config.certChain());
   EXPECT_EQ("", server_context_config.privateKey());
 

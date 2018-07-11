@@ -34,7 +34,8 @@ void SdsApi::initialize(std::function<void()> callback) {
 
 void SdsApi::onConfigUpdate(const ResourceVector& resources, const std::string&) {
   if (resources.empty()) {
-    throw EnvoyException(fmt::format("Missing SDS resources for {} in onConfigUpdate()", sds_config_name_));
+    throw EnvoyException(
+        fmt::format("Missing SDS resources for {} in onConfigUpdate()", sds_config_name_));
   }
   if (resources.size() != 1) {
     throw EnvoyException(fmt::format("Unexpected SDS secrets length: {}", resources.size()));
