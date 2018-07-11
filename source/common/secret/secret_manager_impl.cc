@@ -40,6 +40,14 @@ SecretManagerImpl::findOrCreateDynamicTlsCertificateSecretProvider(
     dynamic_secret_providers_[map_key] = dynamic_secret_provider;
   }
 
+  for (auto it = dynamic_secret_providers_.begin(); it != dynamic_secret_providers_.end(); ) {
+    if (!it->second.lock()) {
+      it = dynamic_secret_providers_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
   return dynamic_secret_provider;
 }
 

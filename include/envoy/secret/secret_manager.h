@@ -35,7 +35,8 @@ public:
    * if such provider does not exist.
    *
    * @param config_source a protobuf message object contains SDS config source.
-   * @param config_name a name that uniquely refers to the SDS config source
+   * @param config_name a name that uniquely refers to the SDS config source.
+   * @param init_manager an init manager that is responsible for initializing newly created secret provider.
    * @return the dynamic tls certificate secret provider.
    */
   virtual DynamicTlsCertificateSecretProviderSharedPtr

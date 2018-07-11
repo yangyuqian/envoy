@@ -441,9 +441,9 @@ ClusterImplBase::ClusterImplBase(const envoy::api::v2::Cluster& cluster,
                                  Runtime::Loader& runtime, Stats::Store& stats,
                                  Ssl::ContextManager& ssl_context_manager,
                                  Secret::SecretManager& secret_manager, bool added_via_api)
-    : runtime_(runtime), sds_init_manager_(new Server::InitManagerImpl()),
+    : runtime_(runtime), init_manager_(new Server::InitManagerImpl()),
       info_(new ClusterInfoImpl(cluster, bind_config, runtime, stats, ssl_context_manager,
-                                secret_manager, *sds_init_manager_.get(), added_via_api)) {
+                                secret_manager, *init_manager_.get(), added_via_api)) {
   // Create the default (empty) priority set before registering callbacks to
   // avoid getting an update the first time it is accessed.
   priority_set_.getOrCreateHostSet(0);
@@ -497,15 +497,15 @@ void ClusterImplBase::initialize(std::function<void()> callback) {
 }
 
 void ClusterImplBase::onPreInitComplete() {
-  if (sds_init_manager_) {
-    sds_init_manager_->initialize([this]() { onSdsInitDone(); });
-    sds_init_manager_.reset();
+  if (init_manager_) {
+    init_manager_->initialize([this]() { onInitDone(); });
+    init_manager_.reset();
   } else {
     onSdsInitDone();
   }
 }
 
-void ClusterImplBase::onSdsInitDone() {
+void ClusterImplBase::onInitDone() {
   // Protect against multiple calls.
   if (initialization_started_) {
     return;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string>
-
 #include "envoy/ssl/tls_certificate_config.h"
 
 namespace Envoy {
