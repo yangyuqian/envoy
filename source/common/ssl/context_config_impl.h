@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "common/common/logger.h"
 #include "envoy/api/v2/auth/cert.pb.h"
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/context_config.h"
@@ -14,7 +15,7 @@ namespace Ssl {
 
 static const std::string INLINE_STRING = "<inline>";
 
-class ContextConfigImpl : public virtual Ssl::ContextConfig {
+class ContextConfigImpl : public virtual Ssl::ContextConfig, public Logger::Loggable<Logger::Id::filter>  {
 public:
   // Ssl::ContextConfig
   const std::string& alpnProtocols() const override { return alpn_protocols_; }
