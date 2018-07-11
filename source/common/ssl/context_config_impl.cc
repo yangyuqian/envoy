@@ -106,7 +106,7 @@ void ContextConfigImpl::readCertChainConfig(const envoy::api::v2::auth::CommonTl
       }
     } else {
       secret_provider_ = secret_manager_.findOrCreateDynamicSecretProvider(
-        secret_config.sds_config(), secret_name);
+          secret_config.sds_config(), secret_name);
       return;
     }
   }
