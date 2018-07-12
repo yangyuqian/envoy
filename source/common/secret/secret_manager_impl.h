@@ -24,6 +24,8 @@ public:
       Init::Manager& init_manager) override;
 
 private:
+  void removeDeletedSecretProvider();
+
   Server::Instance& server_;
 
   // Manages pairs of secret name and Ssl::TlsCertificateConfig.

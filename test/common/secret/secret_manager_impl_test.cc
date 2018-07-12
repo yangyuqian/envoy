@@ -68,11 +68,12 @@ TEST_F(SecretManagerImplTest, SdsDynamicSecretUpdateSuccess) {
   MockServer server;
   NiceMock<Init::MockManager> init_manager;
   envoy::api::v2::core::ConfigSource config_source;
-  auto secret_provider = server.secretManager().findOrCreateDynamicTlsCertificateSecretProvider(
-      config_source, "abc.com", init_manager);
+  {
+    auto secret_provider = server.secretManager().findOrCreateDynamicTlsCertificateSecretProvider(
+        config_source, "abc.com", init_manager);
 
-  std::string yaml =
-      R"EOF(
+    std::string yaml =
+        R"EOF(
 name: "abc.com"
 tls_certificate:
   certificate_chain:
@@ -81,18 +82,19 @@ tls_certificate:
     filename: "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem"
   )EOF";
 
-  Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
-  auto secret_config = secret_resources.Add();
-  MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), *secret_config);
-  std::dynamic_pointer_cast<SdsApi>(secret_provider)->onConfigUpdate(secret_resources, "");
+    Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
+    auto secret_config = secret_resources.Add();
+    MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), *secret_config);
+    std::dynamic_pointer_cast<SdsApi>(secret_provider)->onConfigUpdate(secret_resources, "");
 
-  const std::string cert_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem";
-  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(cert_pem)),
-            secret_provider->secret()->certificateChain());
+    const std::string cert_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem";
+    EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(cert_pem)),
+              secret_provider->secret()->certificateChain());
 
-  const std::string key_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem";
-  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(key_pem)),
-            secret_provider->secret()->privateKey());
+    const std::string key_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem";
+    EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(key_pem)),
+              secret_provider->secret()->privateKey());
+  }
 }
 
 TEST_F(SecretManagerImplTest, NotImplementedException) {

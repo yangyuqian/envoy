@@ -26,6 +26,16 @@ SecretManagerImpl::findStaticTlsCertificate(const std::string& name) const {
   return (secret != static_tls_certificate_secrets_.end()) ? secret->second.get() : nullptr;
 }
 
+void SecretManagerImpl::removeDeletedSecretProvider() {
+  for (auto it = dynamic_secret_providers_.begin(); it != dynamic_secret_providers_.end();) {
+    if (it->second.expired()) {
+      it = dynamic_secret_providers_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
 DynamicTlsCertificateSecretProviderSharedPtr
 SecretManagerImpl::findOrCreateDynamicTlsCertificateSecretProvider(
     const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name,
@@ -40,13 +50,7 @@ SecretManagerImpl::findOrCreateDynamicTlsCertificateSecretProvider(
     dynamic_secret_providers_[map_key] = dynamic_secret_provider;
   }
 
-  for (auto it = dynamic_secret_providers_.begin(); it != dynamic_secret_providers_.end();) {
-    if (!it->second.lock()) {
-      it = dynamic_secret_providers_.erase(it);
-    } else {
-      ++it;
-    }
-  }
+  removeDeletedSecretProvider();
 
   return dynamic_secret_provider;
 }
