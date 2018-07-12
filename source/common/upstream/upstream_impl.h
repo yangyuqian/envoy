@@ -314,8 +314,8 @@ class ClusterInfoImpl : public ClusterInfo {
 public:
   ClusterInfoImpl(const envoy::api::v2::Cluster& config,
                   const envoy::api::v2::core::BindConfig& bind_config, Runtime::Loader& runtime,
-                  Network::TransportSocketFactoryPtr socket_factory, Stats::Scope* stats_scope,
-                  bool added_via_api);
+                  Network::TransportSocketFactoryPtr&& socket_factory,
+                  Stats::ScopePtr&& stats_scope, bool added_via_api);
 
   static ClusterStats generateStats(Stats::Scope& scope);
   static ClusterLoadReportStats generateLoadReportStats(Stats::Scope& scope);
@@ -480,7 +480,6 @@ protected:
 
   Runtime::Loader& runtime_;
   Server::InitManagerImpl init_manager_;
-  Stats::ScopePtr stats_scope_;
   ClusterInfoConstSharedPtr
       info_; // This cluster info stores the stats scope so it must be initialized first
              // and destroyed last.
@@ -491,11 +490,6 @@ protected:
   PrioritySetImpl priority_set_;
 
 private:
-  Network::TransportSocketFactoryPtr
-  createTransportSocketFactory(const envoy::api::v2::Cluster& config, Stats::Scope& stats_scope,
-                               Ssl::ContextManager& ssl_context_manager,
-                               Secret::SecretManager& secret_manager, Init::Manager& init_manager);
-  Stats::ScopePtr generateStatsScope(const envoy::api::v2::Cluster& config, Stats::Store& stats);
   void finishInitialization();
   void reloadHealthyHosts();
 

@@ -143,7 +143,7 @@ HostImpl::createConnection(Event::Dispatcher& dispatcher, const ClusterInfo& clu
 
   auto transport_socket = cluster.transportSocketFactory().createTransportSocket();
   if (!transport_socket) {
-    // TODO(JimmyCYJ) update stats.
+    cluster.stats().upstream_cx_connect_fail_.inc();
     return nullptr;
   }
 
@@ -271,8 +271,8 @@ ClusterLoadReportStats ClusterInfoImpl::generateLoadReportStats(Stats::Scope& sc
 ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
                                  const envoy::api::v2::core::BindConfig& bind_config,
                                  Runtime::Loader& runtime,
-                                 Network::TransportSocketFactoryPtr socket_factory,
-                                 Stats::Scope* stats_scope, bool added_via_api)
+                                 Network::TransportSocketFactoryPtr&& socket_factory,
+                                 Stats::ScopePtr&& stats_scope, bool added_via_api)
     : runtime_(runtime), name_(config.name()), type_(config.type()),
       max_requests_per_connection_(
           PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, max_requests_per_connection, 0)),
@@ -281,7 +281,7 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
       per_connection_buffer_limit_bytes_(
           PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, per_connection_buffer_limit_bytes, 1024 * 1024)),
       load_report_stats_(generateLoadReportStats(load_report_stats_store_)),
-      transport_socket_factory_(std::move(socket_factory)), stats_scope_(stats_scope),
+      transport_socket_factory_(std::move(socket_factory)), stats_scope_(std::move(stats_scope)),
       stats_(generateStats(*stats_scope_)), features_(parseFeatures(config)),
       http2_settings_(Http::Utility::parseHttp2Settings(config.http2_protocol_options())),
       resource_managers_(config, runtime, name_),
@@ -414,17 +414,18 @@ ClusterSharedPtr ClusterImplBase::create(const envoy::api::v2::Cluster& cluster,
   return std::move(new_cluster);
 }
 
-Stats::ScopePtr ClusterImplBase::generateStatsScope(const envoy::api::v2::Cluster& config,
-                                                    Stats::Store& stats) {
+namespace {
+
+Stats::ScopePtr generateStatsScope(const envoy::api::v2::Cluster& config, Stats::Store& stats) {
   return stats.createScope(fmt::format("cluster.{}.", config.alt_stat_name().empty()
                                                           ? config.name()
                                                           : std::string(config.alt_stat_name())));
 }
 
-Network::TransportSocketFactoryPtr ClusterImplBase::createTransportSocketFactory(
-    const envoy::api::v2::Cluster& config, Stats::Scope& stats_scope,
-    Ssl::ContextManager& ssl_context_manager, Secret::SecretManager& secret_manager,
-    Init::Manager& init_manager) {
+Network::TransportSocketFactoryPtr
+createTransportSocketFactory(const envoy::api::v2::Cluster& config, Stats::Scope& stats_scope,
+                             Ssl::ContextManager& ssl_context_manager,
+                             Secret::SecretManager& secret_manager, Init::Manager& init_manager) {
   // If the cluster config doesn't have a transport socket configured, override with the default
   // transport socket implementation based on the tls_context. We copy by value first then override
   // if necessary.
@@ -449,17 +450,20 @@ Network::TransportSocketFactoryPtr ClusterImplBase::createTransportSocketFactory
   return config_factory.createTransportSocketFactory(*message, factory_context);
 }
 
+} // namespace
+
 ClusterImplBase::ClusterImplBase(const envoy::api::v2::Cluster& cluster,
                                  const envoy::api::v2::core::BindConfig& bind_config,
                                  Runtime::Loader& runtime, Stats::Store& stats,
                                  Ssl::ContextManager& ssl_context_manager,
                                  Secret::SecretManager& secret_manager, bool added_via_api)
-    : runtime_(runtime), stats_scope_(generateStatsScope(cluster, stats)),
-      info_(new ClusterInfoImpl(cluster, bind_config, runtime,
-                                createTransportSocketFactory(cluster, *stats_scope_.get(),
-                                                             ssl_context_manager, secret_manager,
-                                                             init_manager_),
-                                stats_scope_.release(), added_via_api)) {
+    : runtime_(runtime) {
+  auto stats_scope = generateStatsScope(cluster, stats);
+  auto socket_factory = createTransportSocketFactory(cluster, *stats_scope, ssl_context_manager,
+                                                     secret_manager, init_manager_);
+  info_ =
+      std::make_unique<ClusterInfoImpl>(cluster, bind_config, runtime, std::move(socket_factory),
+                                        std::move(stats_scope), added_via_api);
   // Create the default (empty) priority set before registering callbacks to
   // avoid getting an update the first time it is accessed.
   priority_set_.getOrCreateHostSet(0);
