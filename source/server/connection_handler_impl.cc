@@ -199,7 +199,7 @@ void ConnectionHandlerImpl::ActiveListener::newConnection(Network::ConnectionSoc
   if (!transport_socket) {
     ENVOY_LOG_TO_LOGGER(parent_.logger_, debug,
                         "closing connection: transport socket was not created yet");
-    stats_.downstream_cx_destroy_.inc();
+    stats_.downstream_cx_destroy_by_sds_.inc();
     socket->close();
     return;
   }

@@ -143,7 +143,7 @@ HostImpl::createConnection(Event::Dispatcher& dispatcher, const ClusterInfo& clu
 
   auto transport_socket = cluster.transportSocketFactory().createTransportSocket();
   if (!transport_socket) {
-    cluster.stats().upstream_cx_connect_fail_.inc();
+    cluster.stats().upstream_cx_connect_fail_by_sds_.inc();
     return nullptr;
   }
 
