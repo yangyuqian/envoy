@@ -16,6 +16,7 @@ envoy_cc_library(
     deps = [
         ":context_config_lib",
         ":context_lib",
+        ":utility_lib",
         "//include/envoy/network:connection_interface",
         "//include/envoy/network:transport_socket_interface",
         "//source/common/common:assert_lib",
@@ -58,6 +59,7 @@ envoy_cc_library(
     ],
     external_deps = ["ssl"],
     deps = [
+        ":utility_lib",
         "//include/envoy/runtime:runtime_interface",
         "//include/envoy/secret:secret_manager_interface",
         "//include/envoy/ssl:context_config_interface",
@@ -79,5 +81,14 @@ envoy_cc_library(
         "//include/envoy/ssl:tls_certificate_config_interface",
         "//source/common/config:datasource_lib",
         "@envoy_api//envoy/api/v2/auth:cert_cc",
+    ],
+)
+
+envoy_cc_library(
+    name = "utility_lib",
+    srcs = ["utility.cc"],
+    hdrs = ["utility.h"],
+    external_deps = [
+        "ssl",
     ],
 )

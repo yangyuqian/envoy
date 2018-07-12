@@ -322,10 +322,7 @@ envoy_cc_test(
         ":http_integration_lib",
         "//source/common/http:header_map_lib",
         "//source/extensions/access_loggers/file:config",
-        "//source/extensions/filters/http/cors:config",
-        "//source/extensions/filters/http/dynamo:config",
-        "//source/extensions/filters/http/grpc_http1_bridge:config",
-        "//source/extensions/filters/http/health_check:config",
+        "//source/extensions/filters/http/buffer:config",
         "//test/test_common:utility_lib",
     ],
 )
@@ -464,6 +461,21 @@ envoy_cc_test(
         "//source/extensions/filters/network/tcp_proxy:config",
         "//test/mocks/runtime:runtime_mocks",
         "//test/mocks/secret:secret_mocks",
+        "//test/test_common:utility_lib",
+    ],
+)
+
+envoy_cc_test(
+    name = "tcp_conn_pool_integration_test",
+    srcs = [
+        "tcp_conn_pool_integration_test.cc",
+    ],
+    deps = [
+        ":integration_lib",
+        "//include/envoy/server:filter_config_interface",
+        "//include/envoy/tcp:conn_pool_interface",
+        "//test/server:utility_lib",
+        "//test/test_common:registry_lib",
         "//test/test_common:utility_lib",
     ],
 )
