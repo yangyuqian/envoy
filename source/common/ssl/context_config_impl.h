@@ -55,8 +55,6 @@ public:
   unsigned minProtocolVersion() const override { return min_protocol_version_; };
   unsigned maxProtocolVersion() const override { return max_protocol_version_; };
 
-  // Only when SDS dynamic secret is needed, but has not been downloaded yet,
-  // the config is invalid.
   bool isValid() const override {
     // either secret_provider_ is nullptr or secret_provider_->secret() is NOT nullptr.
     return !secret_provider_ || secret_provider_->secret();

@@ -113,7 +113,8 @@ public:
   virtual unsigned maxProtocolVersion() const PURE;
 
   /**
-   * @return true of the config is valid.
+   * @return true if the config is valid. Only when SDS dynamic secret is needed, but has not been
+   * downloaded yet, the config is invalid.
    */
   virtual bool isValid() const PURE;
 };
