@@ -60,6 +60,7 @@ createClientSslTransportSocketFactory(bool alpn, bool san, ContextManager& conte
   }
   Server::MockInstance server;
   Json::ObjectSharedPtr loader = TestEnvironment::jsonLoadFromString(target);
+  NiceMock<Init::MockManager> init_manager;
   ClientContextConfigPtr cfg =
       std::make_unique<ClientContextConfigImpl>(*loader, server.secretManager(), init_manager);
   static auto* client_stats_store = new Stats::TestIsolatedStoreImpl();

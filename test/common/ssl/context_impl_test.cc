@@ -564,6 +564,7 @@ TEST(ServerContextConfigImplTest, MultipleTlsCertificates) {
                             EnvoyException,
                             "A single TLS certificate is required for server contexts");
   tls_context.mutable_common_tls_context()->add_tls_certificates();
+  tls_context.mutable_common_tls_context()->add_tls_certificates();
   EXPECT_THROW_WITH_MESSAGE(ServerContextConfigImpl server_context_config(
                                 tls_context, server.secretManager(), init_manager),
                             EnvoyException,
@@ -640,7 +641,7 @@ TEST(ServerContextImplTest, TlsCertificateNonEmpty) {
   Runtime::MockLoader runtime;
   ContextManagerImpl manager(runtime);
   Stats::IsolatedStoreImpl store;
-  EXPECT_THROW_WITH_MESSAGE(ServerContextPtr server_ctx(manager.createSslServerContext(
+  EXPECT_THROW_WITH_MESSAGE(ServerContextSharedPtr server_ctx(manager.createSslServerContext(
                                 store, server_context_config, std::vector<std::string>{})),
                             EnvoyException,
                             "Server TlsCertificates must have a certificate specified");
