@@ -101,7 +101,7 @@ TEST_F(SslContextImplTest, TestExpiringCert) {
   Runtime::MockLoader runtime;
   ContextManagerImpl manager(runtime);
   Stats::IsolatedStoreImpl store;
-  ClientContextPtr context(manager.createSslClientContext(store, cfg));
+  ClientContextSharedPtr context(manager.createSslClientContext(store, cfg));
 
   // This is a total hack, but right now we generate the cert and it expires in 15 days only in the
   // first second that it's valid. This can become invalid and then cause slower tests to fail.
@@ -124,7 +124,7 @@ TEST_F(SslContextImplTest, TestExpiredCert) {
   Runtime::MockLoader runtime;
   ContextManagerImpl manager(runtime);
   Stats::IsolatedStoreImpl store;
-  ClientContextPtr context(manager.createSslClientContext(store, cfg));
+  ClientContextSharedPtr context(manager.createSslClientContext(store, cfg));
   EXPECT_EQ(0U, context->daysUntilFirstCertExpires());
 }
 
@@ -143,7 +143,7 @@ TEST_F(SslContextImplTest, TestGetCertInformation) {
   ContextManagerImpl manager(runtime);
   Stats::IsolatedStoreImpl store;
 
-  ClientContextPtr context(manager.createSslClientContext(store, cfg));
+  ClientContextSharedPtr context(manager.createSslClientContext(store, cfg));
   // This is similar to the hack above, but right now we generate the ca_cert and it expires in 15
   // days only in the first second that it's valid. We will partially match for up until Days until
   // Expiration: 1.
@@ -168,7 +168,7 @@ TEST_F(SslContextImplTest, TestNoCert) {
   Runtime::MockLoader runtime;
   ContextManagerImpl manager(runtime);
   Stats::IsolatedStoreImpl store;
-  ClientContextPtr context(manager.createSslClientContext(store, cfg));
+  ClientContextSharedPtr context(manager.createSslClientContext(store, cfg));
   EXPECT_EQ("", context->getCaCertInformation());
   EXPECT_EQ("", context->getCertChainInformation());
 }
@@ -180,7 +180,7 @@ public:
     Secret::MockSecretManager secret_manager;
     ContextManagerImpl manager(runtime);
     Stats::IsolatedStoreImpl store;
-    ServerContextPtr server_ctx(
+    ServerContextSharedPtr server_ctx(
         manager.createSslServerContext(store, cfg, std::vector<std::string>{}));
   }
 
@@ -476,6 +476,17 @@ TEST(ClientContextConfigImplTest, SdsConfig) {
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
   auto secret_config = secret_resources.Add();
   MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), *secret_config);
+  static_cast<Secret::SdsApi*>(client_context_config.getDynamicSecretProvider())
+      ->onConfigUpdate(secret_resources, "");
+
+  // When sds secret is downloaded, config is valid.
+  EXPECT_TRUE(client_context_config.isValid());
+  const std::string cert_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem";
+  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(cert_pem)),
+            client_context_config.certChain());
+  const std::string key_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem";
+  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(key_pem)),
+            client_context_config.privateKey());
 }
 
 TEST(ClientContextConfigImplTest, StaticTlsCertificates) {
@@ -553,7 +564,6 @@ TEST(ServerContextConfigImplTest, MultipleTlsCertificates) {
                             EnvoyException,
                             "A single TLS certificate is required for server contexts");
   tls_context.mutable_common_tls_context()->add_tls_certificates();
-  tls_context.mutable_common_tls_context()->add_tls_certificates();
   EXPECT_THROW_WITH_MESSAGE(ServerContextConfigImpl server_context_config(
                                 tls_context, server.secretManager(), init_manager),
                             EnvoyException,
@@ -606,6 +616,18 @@ TEST(ServerContextConfigImplTest, SdsConfig) {
   Protobuf::RepeatedPtrField<envoy::api::v2::auth::Secret> secret_resources;
   auto secret_config = secret_resources.Add();
   MessageUtil::loadFromYaml(TestEnvironment::substitute(yaml), *secret_config);
+
+  static_cast<Secret::SdsApi*>(server_context_config.getDynamicSecretProvider())
+      ->onConfigUpdate(secret_resources, "");
+
+  // When sds secret is downloaded, config is valid.
+  EXPECT_TRUE(server_context_config.isValid());
+  const std::string cert_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_cert.pem";
+  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(cert_pem)),
+            server_context_config.certChain());
+  const std::string key_pem = "{{ test_rundir }}/test/common/ssl/test_data/selfsigned_key.pem";
+  EXPECT_EQ(TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(key_pem)),
+            server_context_config.privateKey());
 }
 
 // TlsCertificate messages must have a cert for servers.

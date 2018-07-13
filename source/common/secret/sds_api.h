@@ -6,6 +6,7 @@
 #include "envoy/api/v2/core/config_source.pb.h"
 #include "envoy/config/subscription.h"
 #include "envoy/init/init.h"
+#include "envoy/secret/dynamic_secret_provider.h"
 #include "envoy/server/instance.h"
 
 namespace Envoy {
@@ -16,7 +17,8 @@ namespace Secret {
  */
 class SdsApi : public Init::Target,
                public DynamicTlsCertificateSecretProvider,
-               public Config::SubscriptionCallbacks<envoy::api::v2::auth::Secret> {
+               public Config::SubscriptionCallbacks<envoy::api::v2::auth::Secret>,
+               public Logger::Loggable<Logger::Id::secret> {
 public:
   SdsApi(Server::Instance& server, Init::Manager& init_manager,
          const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name);
@@ -36,6 +38,13 @@ public:
     return tls_certificate_secrets_.get();
   }
 
+  void addUpdateCallback(SecretCallbacks& callback) override {
+    update_callbacks_.push_back(&callback);
+  }
+  void removeUpdateCallback(SecretCallbacks& callback) override {
+    update_callbacks_.remove(&callback);
+  }
+
 private:
   void runInitializeCallbackIfAny();
 
@@ -47,6 +56,7 @@ private:
 
   uint64_t secret_hash_;
   Ssl::TlsCertificateConfigPtr tls_certificate_secrets_;
+  std::list<SecretCallbacks*> update_callbacks_;
 };
 
 typedef std::unique_ptr<SdsApi> SdsApiPtr;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <shared_mutex>
 #include <unordered_map>
 
 #include "envoy/secret/secret_manager.h"

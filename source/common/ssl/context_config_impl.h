@@ -8,6 +8,7 @@
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/context_config.h"
 
+#include "common/common/logger.h"
 #include "common/json/json_loader.h"
 
 namespace Envoy {
@@ -15,7 +16,8 @@ namespace Ssl {
 
 static const std::string INLINE_STRING = "<inline>";
 
-class ContextConfigImpl : public virtual Ssl::ContextConfig {
+class ContextConfigImpl : public virtual Ssl::ContextConfig,
+                          public Logger::Loggable<Logger::Id::filter> {
 public:
   // Ssl::ContextConfig
   const std::string& alpnProtocols() const override { return alpn_protocols_; }
@@ -58,6 +60,10 @@ public:
   bool isValid() const override {
     // either secret_provider_ is nullptr or secret_provider_->secret() is NOT nullptr.
     return !secret_provider_ || secret_provider_->secret();
+  }
+
+  Secret::DynamicTlsCertificateSecretProvider* getDynamicSecretProvider() const override {
+    return secret_provider_.get();
   }
 
 protected:

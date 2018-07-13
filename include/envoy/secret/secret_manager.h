@@ -31,7 +31,7 @@ public:
   findStaticTlsCertificate(const std::string& name) const PURE;
 
   /**
-   * Finds and returns a secret provider associated to SDS config. Create a new one
+   * Finds and returns a TLS certificate secret provider associated to SDS config. Create a new one
    * if such provider does not exist.
    *
    * @param config_source a protobuf message object contains SDS config source.
