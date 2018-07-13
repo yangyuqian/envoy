@@ -25,7 +25,8 @@ public:
   virtual void removeUpdateCallback(SecretCallbacks& callback) PURE;
 };
 
-typedef std::shared_ptr<DynamicTlsCertificateSecretProvider> DynamicTlsCertificateSecretProviderSharedPtr;
+typedef std::shared_ptr<DynamicTlsCertificateSecretProvider>
+    DynamicTlsCertificateSecretProviderSharedPtr;
 
 } // namespace Secret
 } // namespace Envoy

@@ -445,8 +445,8 @@ public:
           TestEnvironment::runfilesPath("test/config/integration/certs/clientkey.pem"));
     }
 
-    Ssl::ClientContextConfigPtr cfg =
-        std::make_unique<Ssl::ClientContextConfigImpl>(tls_context, server_.secretManager(), init_manager_);
+    Ssl::ClientContextConfigPtr cfg = std::make_unique<Ssl::ClientContextConfigImpl>(
+        tls_context, server_.secretManager(), init_manager_);
     mock_cluster_info_->transport_socket_factory_ = std::make_unique<Ssl::ClientSslSocketFactory>(
         std::move(cfg), context_manager_, *stats_store_);
     ON_CALL(*mock_cluster_info_, transportSocketFactory())
@@ -475,8 +475,8 @@ public:
           TestEnvironment::runfilesPath("test/config/integration/certs/cacert.pem"));
     }
 
-    Ssl::ServerContextConfigPtr cfg =
-        std::make_unique<Ssl::ServerContextConfigImpl>(tls_context, server_.secretManager(), init_manager_);
+    Ssl::ServerContextConfigPtr cfg = std::make_unique<Ssl::ServerContextConfigImpl>(
+        tls_context, server_.secretManager(), init_manager_);
 
     static Stats::Scope* upstream_stats_store = new Stats::IsolatedStoreImpl();
     return std::make_unique<Ssl::ServerSslSocketFactory>(
