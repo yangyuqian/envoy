@@ -178,6 +178,7 @@ envoy_cc_library(
         "//include/envoy/network:transport_socket_interface",
         "//include/envoy/secret:secret_manager_interface",
         "//include/envoy/ssl:context_manager_interface",
+        "//include/envoy/upstream:cluster_manager_interface",
         "//source/common/protobuf",
     ],
 )

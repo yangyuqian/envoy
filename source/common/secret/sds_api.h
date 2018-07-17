@@ -5,8 +5,12 @@
 #include "envoy/api/v2/auth/cert.pb.h"
 #include "envoy/api/v2/core/config_source.pb.h"
 #include "envoy/config/subscription.h"
+#include "envoy/event/dispatcher.h"
 #include "envoy/init/init.h"
-#include "envoy/server/instance.h"
+#include "envoy/local_info/local_info.h"
+#include "envoy/runtime/runtime.h"
+#include "envoy/stats/stats.h"
+#include "envoy/upstream/cluster_manager.h"
 
 namespace Envoy {
 namespace Secret {
@@ -18,8 +22,10 @@ class SdsApi : public Init::Target,
                public DynamicTlsCertificateSecretProvider,
                public Config::SubscriptionCallbacks<envoy::api::v2::auth::Secret> {
 public:
-  SdsApi(Server::Instance& server, Init::Manager& init_manager,
-         const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name);
+  SdsApi(const LocalInfo::LocalInfo& local_info, Event::Dispatcher& dispatcher,
+         Runtime::RandomGenerator& random, Stats::Store& stats, Init::Manager& init_manager,
+         const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name,
+         Upstream::ClusterManager& cluster_manager);
 
   // Init::Target
   void initialize(std::function<void()> callback) override;
@@ -39,7 +45,6 @@ public:
 private:
   void runInitializeCallbackIfAny();
 
-  Server::Instance& server_;
   const envoy::api::v2::core::ConfigSource sds_config_;
   std::unique_ptr<Config::Subscription<envoy::api::v2::auth::Secret>> subscription_;
   std::function<void()> initialize_callback_;

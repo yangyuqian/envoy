@@ -6,6 +6,7 @@
 #include "envoy/network/transport_socket.h"
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/context_manager.h"
+#include "envoy/upstream/cluster_manager.h"
 
 #include "common/protobuf/protobuf.h"
 
@@ -31,14 +32,14 @@ public:
   virtual Stats::Scope& statsScope() const PURE;
 
   /**
-   * Return the instance of secret manager.
-   */
-  virtual Secret::SecretManager& secretManager() PURE;
-
-  /**
-   * Return the instance of init manager.
+   * @return the instance of init manager.
    */
   virtual Init::Manager& initManager() PURE;
+
+  /**
+   * @return the instance of ClusterManager.
+   */
+  virtual Upstream::ClusterManager& clusterManager() PURE;
 };
 
 class TransportSocketConfigFactory {
