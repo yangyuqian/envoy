@@ -422,8 +422,8 @@ Stats::ScopePtr generateStatsScope(const envoy::api::v2::Cluster& config, Stats:
 
 Network::TransportSocketFactoryPtr
 createTransportSocketFactory(const envoy::api::v2::Cluster& config, Stats::Scope& stats_scope,
-                             Ssl::ContextManager& ssl_context_manager,
-                             Secret::SecretManager& secret_manager, Init::Manager& init_manager) {
+                             Ssl::ContextManager& ssl_context_manager, ClusterManager& cm,
+                             Init::Manager& init_manager) {
   // If the cluster config doesn't have a transport socket configured, override with the default
   // transport socket implementation based on the tls_context. We copy by value first then override
   // if necessary.
@@ -439,7 +439,7 @@ createTransportSocketFactory(const envoy::api::v2::Cluster& config, Stats::Scope
   }
 
   Server::Configuration::TransportSocketFactoryContextImpl factory_context(
-      ssl_context_manager, stats_scope, secret_manager, init_manager);
+      ssl_context_manager, stats_scope, cm, init_manager);
   auto& config_factory = Config::Utility::getAndCheckFactory<
       Server::Configuration::UpstreamTransportSocketConfigFactory>(transport_socket.name());
   ProtobufTypes::MessagePtr message =
@@ -450,18 +450,16 @@ createTransportSocketFactory(const envoy::api::v2::Cluster& config, Stats::Scope
 
 } // namespace
 
-ClusterImplBase::ClusterImplBase(const envoy::api::v2::Cluster& cluster,
-                                 const envoy::api::v2::core::BindConfig& bind_config,
-                                 Runtime::Loader& runtime, Stats::Store& stats,
-                                 Ssl::ContextManager& ssl_context_manager,
-                                 Secret::SecretManager& secret_manager, bool added_via_api)
+ClusterImplBase::ClusterImplBase(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+                                 Stats::Store& stats, Ssl::ContextManager& ssl_context_manager,
+                                 ClusterManager& cm, bool added_via_api)
     : runtime_(runtime) {
   auto stats_scope = generateStatsScope(cluster, stats);
-  auto socket_factory = createTransportSocketFactory(cluster, *stats_scope, ssl_context_manager,
-                                                     secret_manager, init_manager_);
-  info_ =
-      std::make_unique<ClusterInfoImpl>(cluster, bind_config, runtime, std::move(socket_factory),
-                                        std::move(stats_scope), added_via_api);
+  auto socket_factory =
+      createTransportSocketFactory(cluster, *stats_scope, ssl_context_manager, cm, init_manager_);
+  info_ = std::make_unique<ClusterInfoImpl>(cluster, cm.bindConfig(), runtime,
+                                            std::move(socket_factory), std::move(stats_scope),
+                                            added_via_api);
   // Create the default (empty) priority set before registering callbacks to
   // avoid getting an update the first time it is accessed.
   priority_set_.getOrCreateHostSet(0);
@@ -781,8 +779,7 @@ StaticClusterImpl::StaticClusterImpl(const envoy::api::v2::Cluster& cluster,
                                      Runtime::Loader& runtime, Stats::Store& stats,
                                      Ssl::ContextManager& ssl_context_manager, ClusterManager& cm,
                                      bool added_via_api)
-    : ClusterImplBase(cluster, cm.bindConfig(), runtime, stats, ssl_context_manager,
-                      cm.clusterManagerFactory().secretManager(), added_via_api),
+    : ClusterImplBase(cluster, runtime, stats, ssl_context_manager, cm, added_via_api),
       initial_hosts_(new HostVector()) {
 
   for (const auto& host : cluster.hosts()) {
@@ -962,8 +959,7 @@ StrictDnsClusterImpl::StrictDnsClusterImpl(const envoy::api::v2::Cluster& cluste
                                            Network::DnsResolverSharedPtr dns_resolver,
                                            ClusterManager& cm, Event::Dispatcher& dispatcher,
                                            bool added_via_api)
-    : BaseDynamicClusterImpl(cluster, cm.bindConfig(), runtime, stats, ssl_context_manager,
-                             cm.clusterManagerFactory().secretManager(), added_via_api),
+    : BaseDynamicClusterImpl(cluster, runtime, stats, ssl_context_manager, cm, added_via_api),
       dns_resolver_(dns_resolver),
       dns_refresh_rate_ms_(
           std::chrono::milliseconds(PROTOBUF_GET_MS_OR_DEFAULT(cluster, dns_refresh_rate, 5000))) {

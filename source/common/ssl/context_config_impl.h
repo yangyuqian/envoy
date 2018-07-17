@@ -7,6 +7,7 @@
 #include "envoy/init/init.h"
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/context_config.h"
+#include "envoy/upstream/cluster_manager.h"
 
 #include "common/common/logger.h"
 #include "common/json/json_loader.h"
@@ -68,14 +69,15 @@ public:
 
 protected:
   ContextConfigImpl(const envoy::api::v2::auth::CommonTlsContext& config,
-                    Secret::SecretManager& secret_manager, Init::Manager& init_manager);
+                    Init::Manager& init_manager, Upstream::ClusterManager& cluster_manager);
 
 private:
   static unsigned
   tlsVersionFromProto(const envoy::api::v2::auth::TlsParameters_TlsProtocol& version,
                       unsigned default_version);
+
   void readCertChainConfig(const envoy::api::v2::auth::CommonTlsContext& config,
-                           Init::Manager& init_manager);
+                           Init::Manager& init_manager, Upstream::ClusterManager& cluster_manager);
 
   static const std::string DEFAULT_CIPHER_SUITES;
   static const std::string DEFAULT_ECDH_CURVES;
@@ -105,11 +107,10 @@ private:
 class ClientContextConfigImpl : public ContextConfigImpl, public ClientContextConfig {
 public:
   explicit ClientContextConfigImpl(const envoy::api::v2::auth::UpstreamTlsContext& config,
-                                   Secret::SecretManager& secret_manager,
-                                   Init::Manager& init_manager);
-  explicit ClientContextConfigImpl(const Json::Object& config,
-                                   Secret::SecretManager& secret_manager,
-                                   Init::Manager& init_manager);
+                                   Init::Manager& init_manager,
+                                   Upstream::ClusterManager& cluster_manager);
+  explicit ClientContextConfigImpl(const Json::Object& config, Init::Manager& init_manager,
+                                   Upstream::ClusterManager& cluster_manager);
 
   // Ssl::ClientContextConfig
   const std::string& serverNameIndication() const override { return server_name_indication_; }
@@ -123,11 +124,10 @@ private:
 class ServerContextConfigImpl : public ContextConfigImpl, public ServerContextConfig {
 public:
   explicit ServerContextConfigImpl(const envoy::api::v2::auth::DownstreamTlsContext& config,
-                                   Secret::SecretManager& secret_manager,
-                                   Init::Manager& init_manager);
-  explicit ServerContextConfigImpl(const Json::Object& config,
-                                   Secret::SecretManager& secret_manager,
-                                   Init::Manager& init_manager);
+                                   Init::Manager& init_manager,
+                                   Upstream::ClusterManager& cluster_manager);
+  explicit ServerContextConfigImpl(const Json::Object& config, Init::Manager& init_manager,
+                                   Upstream::ClusterManager& cluster_manager);
 
   // Ssl::ServerContextConfig
   bool requireClientCertificate() const override { return require_client_certificate_; }

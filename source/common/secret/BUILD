@@ -27,8 +27,12 @@ envoy_cc_library(
     hdrs = ["sds_api.h"],
     deps = [
         "//include/envoy/config:subscription_interface",
+        "//include/envoy/event:dispatcher_interface",
         "//include/envoy/init:init_interface",
+        "//include/envoy/local_info:local_info_interface",
+        "//include/envoy/runtime:runtime_interface",
         "//include/envoy/server:instance_interface",
+        "//include/envoy/stats:stats_interface",
         "//source/common/config:resources_lib",
         "//source/common/config:subscription_factory_lib",
         "//source/common/protobuf:utility_lib",
