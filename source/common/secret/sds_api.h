@@ -45,10 +45,15 @@ public:
 private:
   void runInitializeCallbackIfAny();
 
+  const LocalInfo::LocalInfo& local_info_;
+  Event::Dispatcher& dispatcher_;
+  Runtime::RandomGenerator& random_;
+  Stats::Store& stats_;
   const envoy::api::v2::core::ConfigSource sds_config_;
   std::unique_ptr<Config::Subscription<envoy::api::v2::auth::Secret>> subscription_;
   std::function<void()> initialize_callback_;
   const std::string sds_config_name_;
+  Upstream::ClusterManager& cluster_manager_;
 
   uint64_t secret_hash_;
   Ssl::TlsCertificateConfigPtr tls_certificate_secrets_;

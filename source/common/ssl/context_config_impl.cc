@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 
-#include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/tls_certificate_config.h"
 
 #include "common/common/assert.h"
@@ -12,6 +11,7 @@
 #include "common/config/tls_context_json.h"
 #include "common/protobuf/utility.h"
 #include "common/secret/sds_api.h"
+#include "common/secret/secret_manager_impl.h"
 
 #include "openssl/ssl.h"
 

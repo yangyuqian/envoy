@@ -21,6 +21,7 @@ public:
   Event::Dispatcher& dispatcher() override { return server_.dispatcher(); }
   Runtime::RandomGenerator& random() override { return server_.random(); }
   Stats::Store& stats() override { return server_.stats(); }
+
   void addStaticSecret(const envoy::api::v2::auth::Secret& secret) override;
   const Ssl::TlsCertificateConfig* findStaticTlsCertificate(const std::string& name) const override;
 
@@ -35,7 +36,8 @@ public:
 private:
   void removeDeletedSecretProvider();
   std::string getDynamicTlsCertificateSecretProviderHash(
-      const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name);
+      const envoy::api::v2::core::ConfigSource& sds_config_source,
+      const std::string& config_name) const;
 
   Server::Instance& server_;
 

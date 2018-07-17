@@ -37,7 +37,8 @@ void SecretManagerImpl::removeDeletedSecretProvider() {
 }
 
 std::string SecretManagerImpl::getDynamicTlsCertificateSecretProviderHash(
-    const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name) {
+    const envoy::api::v2::core::ConfigSource& sds_config_source,
+    const std::string& config_name) const {
   auto hash = MessageUtil::hash(sds_config_source);
   return std::to_string(hash) + config_name;
 }
@@ -49,12 +50,7 @@ SecretManagerImpl::findDynamicTlsCertificateSecretProvider(
 
   removeDeletedSecretProvider();
 
-  auto dynamic_secret_provider = dynamic_secret_providers_[map_key].lock();
-  if (!dynamic_secret_provider) {
-    return nullptr;
-  } else {
-    return dynamic_secret_provider;
-  }
+  return dynamic_secret_providers_[map_key].lock();
 }
 
 void SecretManagerImpl::setDynamicTlsCertificateSecretProvider(
