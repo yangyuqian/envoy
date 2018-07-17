@@ -473,10 +473,9 @@ public:
   void initialize(std::function<void()> callback) override;
 
 protected:
-  ClusterImplBase(const envoy::api::v2::Cluster& cluster,
-                  const envoy::api::v2::core::BindConfig& bind_config, Runtime::Loader& runtime,
-                  Stats::Store& stats, Ssl::ContextManager& ssl_context_manager,
-                  Secret::SecretManager& secret_manager, bool added_via_api);
+  ClusterImplBase(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+                  Stats::Store& stats, Ssl::ContextManager& ssl_context_manager, ClusterManager& cm,
+                  bool added_via_api);
 
   /**
    * Overridden by every concrete cluster. The cluster should do whatever pre-init is needed. E.g.,

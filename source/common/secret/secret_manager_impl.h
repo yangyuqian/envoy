@@ -5,6 +5,7 @@
 #include "envoy/secret/secret_manager.h"
 #include "envoy/server/instance.h"
 #include "envoy/ssl/tls_certificate_config.h"
+#include "envoy/upstream/cluster_manager.h"
 
 #include "common/common/logger.h"
 #include "common/secret/sds_api.h"
@@ -16,15 +17,25 @@ class SecretManagerImpl : public SecretManager, Logger::Loggable<Logger::Id::ups
 public:
   SecretManagerImpl(Server::Instance& server) : server_(server) {}
 
+  const LocalInfo::LocalInfo& localInfo() override { return server_.localInfo(); }
+  Event::Dispatcher& dispatcher() override { return server_.dispatcher(); }
+  Runtime::RandomGenerator& random() override { return server_.random(); }
+  Stats::Store& stats() override { return server_.stats(); }
   void addStaticSecret(const envoy::api::v2::auth::Secret& secret) override;
   const Ssl::TlsCertificateConfig* findStaticTlsCertificate(const std::string& name) const override;
 
-  DynamicTlsCertificateSecretProviderSharedPtr findOrCreateDynamicTlsCertificateSecretProvider(
-      const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name,
-      Init::Manager& init_manager) override;
+  DynamicTlsCertificateSecretProviderSharedPtr findDynamicTlsCertificateSecretProvider(
+      const envoy::api::v2::core::ConfigSource& sds_config_source,
+      const std::string& config_name) override;
+
+  void setDynamicTlsCertificateSecretProvider(
+      const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name,
+      DynamicTlsCertificateSecretProviderSharedPtr provider) override;
 
 private:
   void removeDeletedSecretProvider();
+  std::string getDynamicTlsCertificateSecretProviderHash(
+      const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name);
 
   Server::Instance& server_;
 

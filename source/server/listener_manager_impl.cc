@@ -241,7 +241,7 @@ ListenerImpl::ListenerImpl(const envoy::api::v2::Listener& config, const std::st
         filter_chain_match.application_protocols().end());
 
     Server::Configuration::TransportSocketFactoryContextImpl factory_context(
-        parent_.server_.sslContextManager(), *listener_scope_, parent_.server_.secretManager(),
+        parent_.server_.sslContextManager(), *listener_scope_, parent_.server_.clusterManager(),
         initManager());
     addFilterChain(PROTOBUF_GET_WRAPPED_OR_DEFAULT(filter_chain_match, destination_port, 0),
                    destination_ips, server_names, filter_chain_match.transport_protocol(),
