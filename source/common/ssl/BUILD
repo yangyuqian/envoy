@@ -34,16 +34,15 @@ envoy_cc_library(
         "ssl",
     ],
     deps = [
-        "//include/envoy/init:init_interface",
+        "//include/envoy/secret:dynamic_secret_provider_factory_interface",
+        "//include/envoy/secret:secret_manager_interface",
         "//include/envoy/ssl:context_config_interface",
-        "//include/envoy/upstream:cluster_manager_interface",
         "//source/common/common:assert_lib",
         "//source/common/common:empty_string",
         "//source/common/config:datasource_lib",
         "//source/common/config:tls_context_json_lib",
         "//source/common/json:json_loader_lib",
         "//source/common/protobuf:utility_lib",
-        "//source/common/secret:secret_manager_impl_lib",
         "@envoy_api//envoy/api/v2/auth:cert_cc",
     ],
 )

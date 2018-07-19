@@ -17,11 +17,6 @@ class SecretManagerImpl : public SecretManager, Logger::Loggable<Logger::Id::ups
 public:
   SecretManagerImpl(Server::Instance& server) : server_(server) {}
 
-  const LocalInfo::LocalInfo& localInfo() override { return server_.localInfo(); }
-  Event::Dispatcher& dispatcher() override { return server_.dispatcher(); }
-  Runtime::RandomGenerator& random() override { return server_.random(); }
-  Stats::Store& stats() override { return server_.stats(); }
-
   void addStaticSecret(const envoy::api::v2::auth::Secret& secret) override;
   const Ssl::TlsCertificateConfig* findStaticTlsCertificate(const std::string& name) const override;
 

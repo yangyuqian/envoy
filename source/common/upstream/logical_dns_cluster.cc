@@ -15,13 +15,14 @@
 namespace Envoy {
 namespace Upstream {
 
-LogicalDnsCluster::LogicalDnsCluster(const envoy::api::v2::Cluster& cluster,
-                                     Runtime::Loader& runtime, Stats::Store& stats,
-                                     Ssl::ContextManager& ssl_context_manager,
-                                     Network::DnsResolverSharedPtr dns_resolver,
-                                     ThreadLocal::SlotAllocator& tls, ClusterManager& cm,
-                                     Event::Dispatcher& dispatcher, bool added_via_api)
-    : ClusterImplBase(cluster, runtime, stats, ssl_context_manager, cm, added_via_api),
+LogicalDnsCluster::LogicalDnsCluster(
+    const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
+    Ssl::ContextManager& ssl_context_manager, Network::DnsResolverSharedPtr dns_resolver,
+    ThreadLocal::SlotAllocator& tls, ClusterManager& cm, Event::Dispatcher& dispatcher,
+    bool added_via_api,
+    Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context)
+    : ClusterImplBase(cluster, runtime, stats, ssl_context_manager, cm, added_via_api,
+                      std::move(secret_provider_context)),
       dns_resolver_(dns_resolver),
       dns_refresh_rate_ms_(
           std::chrono::milliseconds(PROTOBUF_GET_MS_OR_DEFAULT(cluster, dns_refresh_rate, 5000))),

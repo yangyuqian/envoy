@@ -446,10 +446,11 @@ public:
       tls_cert->mutable_private_key()->set_filename(
           TestEnvironment::runfilesPath("test/config/integration/certs/clientkey.pem"));
     }
-    Ssl::ClientContextConfigImpl cfg(tls_context, server_.secretManager(), init_manager_);
 
-    mock_cluster_info_->transport_socket_factory_ =
-        std::make_unique<Ssl::ClientSslSocketFactory>(cfg, context_manager_, *stats_store_);
+    Ssl::ClientContextConfigPtr cfg = std::make_unique<Ssl::ClientContextConfigImpl>(
+        tls_context, server_.secretManager(), init_manager_);
+    mock_cluster_info_->transport_socket_factory_ = std::make_unique<Ssl::ClientSslSocketFactory>(
+        std::move(cfg), context_manager_, *stats_store_);
     ON_CALL(*mock_cluster_info_, transportSocketFactory())
         .WillByDefault(ReturnRef(*mock_cluster_info_->transport_socket_factory_));
     async_client_transport_socket_ =
@@ -475,12 +476,12 @@ public:
       validation_context->mutable_trusted_ca()->set_filename(
           TestEnvironment::runfilesPath("test/config/integration/certs/cacert.pem"));
     }
-
-    Ssl::ServerContextConfigImpl cfg(tls_context, server_.secretManager(), init_manager_);
+    Ssl::ServerContextConfigPtr cfg = std::make_unique<Ssl::ServerContextConfigImpl>(
+        tls_context, server_.secretManager(), init_manager_);
 
     static Stats::Scope* upstream_stats_store = new Stats::IsolatedStoreImpl();
     return std::make_unique<Ssl::ServerSslSocketFactory>(
-        cfg, context_manager_, *upstream_stats_store, std::vector<std::string>{});
+        std::move(cfg), context_manager_, *upstream_stats_store, std::vector<std::string>{});
   }
 
   bool use_client_cert_{};

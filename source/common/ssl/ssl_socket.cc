@@ -382,10 +382,10 @@ std::string SslSocket::subjectLocalCertificate() const {
   return getSubjectFromCertificate(cert);
 }
 
-ClientSslSocketFactory::ClientSslSocketFactory(const ClientContextConfig& config,
+ClientSslSocketFactory::ClientSslSocketFactory(ClientContextConfigPtr config,
                                                Ssl::ContextManager& manager,
                                                Stats::Scope& stats_scope)
-    : ssl_ctx_(manager.createSslClientContext(stats_scope, config)) {}
+    : config_(std::move(config)), ssl_ctx_(manager.createSslClientContext(stats_scope, *config_)) {}
 
 Network::TransportSocketPtr ClientSslSocketFactory::createTransportSocket() const {
   return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(ssl_ctx_, Ssl::InitialState::Client)
@@ -394,11 +394,12 @@ Network::TransportSocketPtr ClientSslSocketFactory::createTransportSocket() cons
 
 bool ClientSslSocketFactory::implementsSecureTransport() const { return true; }
 
-ServerSslSocketFactory::ServerSslSocketFactory(const ServerContextConfig& config,
+ServerSslSocketFactory::ServerSslSocketFactory(ServerContextConfigPtr config,
                                                Ssl::ContextManager& manager,
                                                Stats::Scope& stats_scope,
                                                const std::vector<std::string>& server_names)
-    : ssl_ctx_(manager.createSslServerContext(stats_scope, config, server_names)) {}
+    : config_(std::move(config)),
+      ssl_ctx_(manager.createSslServerContext(stats_scope, *config_, server_names)) {}
 
 Network::TransportSocketPtr ServerSslSocketFactory::createTransportSocket() const {
   return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(ssl_ctx_, Ssl::InitialState::Server)

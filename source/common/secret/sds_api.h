@@ -23,9 +23,9 @@ class SdsApi : public Init::Target,
                public Config::SubscriptionCallbacks<envoy::api::v2::auth::Secret> {
 public:
   SdsApi(const LocalInfo::LocalInfo& local_info, Event::Dispatcher& dispatcher,
-         Runtime::RandomGenerator& random, Stats::Store& stats, Init::Manager& init_manager,
-         const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name,
-         Upstream::ClusterManager& cluster_manager);
+         Runtime::RandomGenerator& random, Stats::Store& stats,
+         Upstream::ClusterManager& cluster_manager, Init::Manager& init_manager,
+         const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name);
 
   // Init::Target
   void initialize(std::function<void()> callback) override;
@@ -49,11 +49,12 @@ private:
   Event::Dispatcher& dispatcher_;
   Runtime::RandomGenerator& random_;
   Stats::Store& stats_;
+  Upstream::ClusterManager& cluster_manager_;
+
   const envoy::api::v2::core::ConfigSource sds_config_;
   std::unique_ptr<Config::Subscription<envoy::api::v2::auth::Secret>> subscription_;
   std::function<void()> initialize_callback_;
   const std::string sds_config_name_;
-  Upstream::ClusterManager& cluster_manager_;
 
   uint64_t secret_hash_;
   Ssl::TlsCertificateConfigPtr tls_certificate_secrets_;

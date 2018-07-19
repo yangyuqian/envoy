@@ -3,13 +3,8 @@
 #include <string>
 
 #include "envoy/api/v2/auth/cert.pb.h"
-#include "envoy/event/dispatcher.h"
-#include "envoy/init/init.h"
-#include "envoy/local_info/local_info.h"
-#include "envoy/runtime/runtime.h"
 #include "envoy/secret/dynamic_secret_provider.h"
 #include "envoy/ssl/tls_certificate_config.h"
-#include "envoy/stats/stats.h"
 
 namespace Envoy {
 namespace Secret {
@@ -20,27 +15,6 @@ namespace Secret {
 class SecretManager {
 public:
   virtual ~SecretManager() {}
-
-  /**
-   * @return information about the local environment the server is running in.
-   */
-  virtual const LocalInfo::LocalInfo& localInfo() PURE;
-
-  /**
-   * @return Event::Dispatcher& the main thread's dispatcher. This dispatcher should be used
-   *         for all singleton processing.
-   */
-  virtual Event::Dispatcher& dispatcher() PURE;
-
-  /**
-   * @return RandomGenerator& the random generator for the server.
-   */
-  virtual Runtime::RandomGenerator& random() PURE;
-
-  /**
-   * @return the server-wide stats store.
-   */
-  virtual Stats::Store& stats() PURE;
 
   /**
    * @param secret a protobuf message of envoy::api::v2::auth::Secret.
