@@ -22,9 +22,9 @@ EdsClusterImpl::EdsClusterImpl(
     Ssl::ContextManager& ssl_context_manager, const LocalInfo::LocalInfo& local_info,
     ClusterManager& cm, Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
     bool added_via_api,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context)
+    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context)
     : BaseDynamicClusterImpl(cluster, runtime, stats, ssl_context_manager, cm, added_via_api,
-                             std::move(secret_provider_context)),
+                             secret_provider_context),
       cm_(cm), local_info_(local_info),
       cluster_name_(cluster.eds_cluster_config().service_name().empty()
                         ? cluster.name()

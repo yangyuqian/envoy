@@ -23,7 +23,7 @@ public:
       Ssl::ContextManager& ssl_context_manager, const LocalInfo::LocalInfo& local_info,
       ClusterManager& cm, Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
       bool added_via_api,
-      Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context);
+      Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context);
 
   // Upstream::Cluster
   InitializePhase initializePhase() const override { return InitializePhase::Secondary; }

@@ -241,13 +241,12 @@ ListenerImpl::ListenerImpl(const envoy::api::v2::Listener& config, const std::st
         filter_chain_match.application_protocols().begin(),
         filter_chain_match.application_protocols().end());
 
-    auto secret_provider_context =
-        std::make_unique<Secret::DynamicTlsCertificateSecretProviderFactoryContextImpl>(
-            parent_.server_.localInfo(), parent_.server_.dispatcher(), parent_.server_.random(),
-            parent_.server_.stats(), parent_.server_.clusterManager());
+    Secret::DynamicTlsCertificateSecretProviderFactoryContextImpl secret_provider_context(
+        parent_.server_.localInfo(), parent_.server_.dispatcher(), parent_.server_.random(),
+        parent_.server_.stats(), parent_.server_.clusterManager());
     Server::Configuration::TransportSocketFactoryContextImpl factory_context(
         parent_.server_.sslContextManager(), *listener_scope_, parent_.server_.clusterManager(),
-        initManager(), std::move(secret_provider_context));
+        initManager(), secret_provider_context);
     addFilterChain(PROTOBUF_GET_WRAPPED_OR_DEFAULT(filter_chain_match, destination_port, 0),
                    destination_ips, server_names, filter_chain_match.transport_protocol(),
                    application_protocols,
