@@ -36,12 +36,15 @@ void SecretManagerImpl::removeDeletedSecretProvider() {
   }
 }
 
-std::string SecretManagerImpl::getDynamicTlsCertificateSecretProviderHash(
-    const envoy::api::v2::core::ConfigSource& sds_config_source,
-    const std::string& config_name) const {
+namespace {
+
+std::string getDynamicTlsCertificateSecretProviderHash(
+    const envoy::api::v2::core::ConfigSource& sds_config_source, const std::string& config_name) {
   auto hash = MessageUtil::hash(sds_config_source);
   return std::to_string(hash) + config_name;
 }
+
+} // namespace
 
 DynamicTlsCertificateSecretProviderSharedPtr
 SecretManagerImpl::findDynamicTlsCertificateSecretProvider(

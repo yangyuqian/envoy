@@ -108,7 +108,7 @@ void ContextConfigImpl::readCertChainConfig(
         throw EnvoyException(fmt::format("Unknown static secret: {}", secret_name));
       }
     } else {
-      secret_provider_ = secret_provider_factory.findOrCreateDynamicTlsCertificateSecretProvider(
+      secret_provider_ = secret_provider_factory.findOrCreate(
           config.tls_certificate_sds_secret_configs()[0].sds_config(), secret_name);
       return;
     }

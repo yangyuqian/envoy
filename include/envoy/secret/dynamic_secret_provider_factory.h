@@ -46,9 +46,6 @@ public:
   virtual Upstream::ClusterManager& cluster_manager() PURE;
 };
 
-typedef std::unique_ptr<DynamicTlsCertificateSecretProviderFactoryContext>
-    DynamicTlsCertificateSecretProviderFactoryContextPtr;
-
 /**
  * Factory for creating dynamic TlsCertificate secret provider.
  */
@@ -65,8 +62,8 @@ public:
    * @return the dynamic tls certificate secret provider.
    */
   virtual DynamicTlsCertificateSecretProviderSharedPtr
-  findOrCreateDynamicTlsCertificateSecretProvider(
-      const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name) PURE;
+  findOrCreate(const envoy::api::v2::core::ConfigSource& sds_config,
+               std::string sds_config_name) PURE;
 };
 
 } // namespace Secret

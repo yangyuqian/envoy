@@ -50,8 +50,9 @@ public:
       DynamicTlsCertificateSecretProviderFactoryContext& context, Init::Manager& init_manager)
       : context_(context), init_manager_(init_manager) {}
 
-  DynamicTlsCertificateSecretProviderSharedPtr findOrCreateDynamicTlsCertificateSecretProvider(
-      const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name) override {
+  DynamicTlsCertificateSecretProviderSharedPtr
+  findOrCreate(const envoy::api::v2::core::ConfigSource& sds_config,
+               std::string sds_config_name) override {
     Secret::SecretManager& secret_manager =
         context_.cluster_manager().clusterManagerFactory().secretManager();
     auto secret_provider =

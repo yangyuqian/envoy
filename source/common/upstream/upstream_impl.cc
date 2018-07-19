@@ -363,23 +363,22 @@ ClusterSharedPtr ClusterImplBase::create(
     selected_dns_resolver = dispatcher.createDnsResolver(resolvers);
   }
 
-  auto secret_provider_context =
-      std::make_unique<Secret::DynamicTlsCertificateSecretProviderFactoryContextImpl>(
-          local_info, dispatcher, random, stats, cm);
+  Secret::DynamicTlsCertificateSecretProviderFactoryContextImpl secret_provider_context(
+      local_info, dispatcher, random, stats, cm);
   switch (cluster.type()) {
   case envoy::api::v2::Cluster::STATIC:
     new_cluster.reset(new StaticClusterImpl(cluster, runtime, stats, ssl_context_manager, cm,
-                                            added_via_api, std::move(secret_provider_context)));
+                                            added_via_api, secret_provider_context));
     break;
   case envoy::api::v2::Cluster::STRICT_DNS:
     new_cluster.reset(new StrictDnsClusterImpl(cluster, runtime, stats, ssl_context_manager,
                                                selected_dns_resolver, cm, dispatcher, added_via_api,
-                                               std::move(secret_provider_context)));
+                                               secret_provider_context));
     break;
   case envoy::api::v2::Cluster::LOGICAL_DNS:
     new_cluster.reset(new LogicalDnsCluster(cluster, runtime, stats, ssl_context_manager,
                                             selected_dns_resolver, tls, cm, dispatcher,
-                                            added_via_api, std::move(secret_provider_context)));
+                                            added_via_api, secret_provider_context));
     break;
   case envoy::api::v2::Cluster::ORIGINAL_DST:
     if (cluster.lb_policy() != envoy::api::v2::Cluster::ORIGINAL_DST_LB) {
@@ -391,8 +390,7 @@ ClusterSharedPtr ClusterImplBase::create(
           "cluster: cluster type 'original_dst' may not be used with lb_subset_config"));
     }
     new_cluster.reset(new OriginalDstCluster(cluster, runtime, stats, ssl_context_manager, cm,
-                                             dispatcher, added_via_api,
-                                             std::move(secret_provider_context)));
+                                             dispatcher, added_via_api, secret_provider_context));
     break;
   case envoy::api::v2::Cluster::EDS:
     if (!cluster.has_eds_cluster_config()) {
@@ -402,7 +400,7 @@ ClusterSharedPtr ClusterImplBase::create(
     // We map SDS to EDS, since EDS provides backwards compatibility with SDS.
     new_cluster.reset(new EdsClusterImpl(cluster, runtime, stats, ssl_context_manager, local_info,
                                          cm, dispatcher, random, added_via_api,
-                                         std::move(secret_provider_context)));
+                                         secret_provider_context));
     break;
   default:
     NOT_REACHED;
@@ -431,7 +429,7 @@ Stats::ScopePtr generateStatsScope(const envoy::api::v2::Cluster& config, Stats:
 Network::TransportSocketFactoryPtr createTransportSocketFactory(
     const envoy::api::v2::Cluster& config, Stats::Scope& stats_scope,
     Ssl::ContextManager& ssl_context_manager, ClusterManager& cm, Init::Manager& init_manager,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context) {
+    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context) {
   // If the cluster config doesn't have a transport socket configured, override with the default
   // transport socket implementation based on the tls_context. We copy by value first then override
   // if necessary.
@@ -447,7 +445,7 @@ Network::TransportSocketFactoryPtr createTransportSocketFactory(
   }
 
   Server::Configuration::TransportSocketFactoryContextImpl factory_context(
-      ssl_context_manager, stats_scope, cm, init_manager, std::move(secret_provider_context));
+      ssl_context_manager, stats_scope, cm, init_manager, secret_provider_context);
   auto& config_factory = Config::Utility::getAndCheckFactory<
       Server::Configuration::UpstreamTransportSocketConfigFactory>(transport_socket.name());
   ProtobufTypes::MessagePtr message =
@@ -461,12 +459,11 @@ Network::TransportSocketFactoryPtr createTransportSocketFactory(
 ClusterImplBase::ClusterImplBase(
     const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
     Ssl::ContextManager& ssl_context_manager, ClusterManager& cm, bool added_via_api,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context)
+    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context)
     : runtime_(runtime) {
   auto stats_scope = generateStatsScope(cluster, stats);
-  auto socket_factory =
-      createTransportSocketFactory(cluster, *stats_scope, ssl_context_manager, cm, init_manager_,
-                                   std::move(secret_provider_context));
+  auto socket_factory = createTransportSocketFactory(cluster, *stats_scope, ssl_context_manager, cm,
+                                                     init_manager_, secret_provider_context);
   info_ = std::make_unique<ClusterInfoImpl>(cluster, cm.bindConfig(), runtime,
                                             std::move(socket_factory), std::move(stats_scope),
                                             added_via_api);
@@ -788,9 +785,9 @@ void PriorityStateManager::updateClusterPrioritySet(
 StaticClusterImpl::StaticClusterImpl(
     const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
     Ssl::ContextManager& ssl_context_manager, ClusterManager& cm, bool added_via_api,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context)
+    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context)
     : ClusterImplBase(cluster, runtime, stats, ssl_context_manager, cm, added_via_api,
-                      std::move(secret_provider_context)),
+                      secret_provider_context),
       initial_hosts_(new HostVector()) {
 
   for (const auto& host : cluster.hosts()) {
@@ -968,9 +965,9 @@ StrictDnsClusterImpl::StrictDnsClusterImpl(
     const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
     Ssl::ContextManager& ssl_context_manager, Network::DnsResolverSharedPtr dns_resolver,
     ClusterManager& cm, Event::Dispatcher& dispatcher, bool added_via_api,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context)
+    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context)
     : BaseDynamicClusterImpl(cluster, runtime, stats, ssl_context_manager, cm, added_via_api,
-                             std::move(secret_provider_context)),
+                             secret_provider_context),
       dns_resolver_(dns_resolver),
       dns_refresh_rate_ms_(
           std::chrono::milliseconds(PROTOBUF_GET_MS_OR_DEFAULT(cluster, dns_refresh_rate, 5000))) {

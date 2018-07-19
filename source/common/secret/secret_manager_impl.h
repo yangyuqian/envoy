@@ -31,9 +31,6 @@ public:
 
 private:
   void removeDeletedSecretProvider();
-  std::string getDynamicTlsCertificateSecretProviderHash(
-      const envoy::api::v2::core::ConfigSource& sds_config_source,
-      const std::string& config_name) const;
 
   Server::Instance& server_;
 

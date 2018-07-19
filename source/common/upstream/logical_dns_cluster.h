@@ -33,7 +33,7 @@ public:
       Ssl::ContextManager& ssl_context_manager, Network::DnsResolverSharedPtr dns_resolver,
       ThreadLocal::SlotAllocator& tls, ClusterManager& cm, Event::Dispatcher& dispatcher,
       bool added_via_api,
-      Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context);
+      Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context);
 
   ~LogicalDnsCluster();
 
