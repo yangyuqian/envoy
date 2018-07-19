@@ -6,6 +6,8 @@
 #include "common/config/utility.h"
 #include "common/protobuf/protobuf.h"
 
+#include "server/backtrace.h"
+
 namespace Envoy {
 namespace Config {
 
@@ -238,6 +240,8 @@ void GrpcMuxImpl::onReceiveTrailingMetadata(Http::HeaderMapPtr&& metadata) {
 
 void GrpcMuxImpl::onRemoteClose(Grpc::Status::GrpcStatus status, const std::string& message) {
   ENVOY_LOG(warn, "gRPC config stream closed: {}, {}", status, message);
+  std::cerr << "GrpcMuxImpl::onRemoteClose: BACKTRACE_LOG():" << std::endl;
+  BACKTRACE_LOG();
   stream_ = nullptr;
   setRetryTimer();
 }

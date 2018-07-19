@@ -146,6 +146,7 @@ envoy_cc_library(
         "//source/common/common:minimal_logger_lib",
         "//source/common/common:token_bucket_impl_lib",
         "//source/common/protobuf",
+        "//source/server:backtrace_lib",
     ],
 )
 
