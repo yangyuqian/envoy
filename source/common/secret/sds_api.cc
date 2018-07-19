@@ -13,11 +13,11 @@ namespace Envoy {
 namespace Secret {
 
 SdsApi::SdsApi(const LocalInfo::LocalInfo& local_info, Event::Dispatcher& dispatcher,
-               Runtime::RandomGenerator& random, Stats::Store& stats, Init::Manager& init_manager,
-               const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name,
-               Upstream::ClusterManager& cluster_manager)
+               Runtime::RandomGenerator& random, Stats::Store& stats,
+               Upstream::ClusterManager& cluster_manager, Init::Manager& init_manager,
+               const envoy::api::v2::core::ConfigSource& sds_config, std::string sds_config_name)
     : local_info_(local_info), dispatcher_(dispatcher), random_(random), stats_(stats),
-      sds_config_(sds_config), sds_config_name_(sds_config_name), cluster_manager_(cluster_manager),
+      cluster_manager_(cluster_manager), sds_config_(sds_config), sds_config_name_(sds_config_name),
       secret_hash_(0) {
   init_manager.registerTarget(*this);
 }

@@ -28,10 +28,12 @@ namespace Upstream {
  */
 class LogicalDnsCluster : public ClusterImplBase {
 public:
-  LogicalDnsCluster(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
-                    Stats::Store& stats, Ssl::ContextManager& ssl_context_manager,
-                    Network::DnsResolverSharedPtr dns_resolver, ThreadLocal::SlotAllocator& tls,
-                    ClusterManager& cm, Event::Dispatcher& dispatcher, bool added_via_api);
+  LogicalDnsCluster(
+      const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
+      Ssl::ContextManager& ssl_context_manager, Network::DnsResolverSharedPtr dns_resolver,
+      ThreadLocal::SlotAllocator& tls, ClusterManager& cm, Event::Dispatcher& dispatcher,
+      bool added_via_api,
+      Secret::DynamicTlsCertificateSecretProviderFactoryContextPtr secret_provider_context);
 
   ~LogicalDnsCluster();
 

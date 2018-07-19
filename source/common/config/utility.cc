@@ -216,9 +216,13 @@ Grpc::AsyncClientFactoryPtr Utility::factoryForGrpcApiConfigSource(
     Grpc::AsyncClientManager& async_client_manager,
     const envoy::api::v2::core::ApiConfigSource& api_config_source, Stats::Scope& scope) {
   Utility::checkApiConfigSourceNames(api_config_source);
-
+  std::cerr << "Debug SDS: Utility::factoryForGrpcApiConfigSource() dump api_config_source:"
+           << api_config_source.DebugString() << std::endl;
   envoy::api::v2::core::GrpcService grpc_service;
   grpc_service.MergeFrom(api_config_source.grpc_services(0));
+
+  std::cerr << "Debug SDS: Utility::factoryForGrpcApiConfigSource() dump grpc_service:"
+            << grpc_service.DebugString() << std::endl;
 
   return async_client_manager.factoryForGrpcService(grpc_service, scope, false);
 }

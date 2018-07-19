@@ -14,6 +14,7 @@
 #include "common/network/socket_option_factory.h"
 #include "common/network/utility.h"
 #include "common/protobuf/utility.h"
+#include "common/secret/dynamic_secret_provider_factory_impl.h"
 
 #include "server/configuration_impl.h"
 #include "server/drain_manager_impl.h"
@@ -233,9 +234,13 @@ ListenerImpl::ListenerImpl(const envoy::api::v2::Listener& config, const std::st
         filter_chain_match.application_protocols().begin(),
         filter_chain_match.application_protocols().end());
 
+    auto secret_provider_context =
+        std::make_unique<Secret::DynamicTlsCertificateSecretProviderFactoryContextImpl>(
+            parent_.server_.localInfo(), parent_.server_.dispatcher(), parent_.server_.random(),
+            parent_.server_.stats(), parent_.server_.clusterManager());
     Server::Configuration::TransportSocketFactoryContextImpl factory_context(
         parent_.server_.sslContextManager(), *listener_scope_, parent_.server_.clusterManager(),
-        initManager());
+        initManager(), std::move(secret_provider_context));
     addFilterChain(
         server_names, filter_chain_match.transport_protocol(), application_protocols,
         config_factory.createTransportSocketFactory(*message, factory_context, server_names),
