@@ -16,18 +16,16 @@ namespace Envoy {
 namespace Upstream {
 
 LogicalDnsCluster::LogicalDnsCluster(
-    const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
-    Ssl::ContextManager& ssl_context_manager, Network::DnsResolverSharedPtr dns_resolver,
-    ThreadLocal::SlotAllocator& tls, ClusterManager& cm, Event::Dispatcher& dispatcher,
-    bool added_via_api,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context)
-    : ClusterImplBase(cluster, runtime, stats, ssl_context_manager, cm, added_via_api,
-                      secret_provider_context),
+    const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+    Network::DnsResolverSharedPtr dns_resolver, ThreadLocal::SlotAllocator& tls, bool added_via_api,
+    Server::Configuration::TransportSocketFactoryContext& factory_context,
+    Stats::ScopePtr stats_scope)
+    : ClusterImplBase(cluster, runtime, added_via_api, factory_context, std::move(stats_scope)),
       dns_resolver_(dns_resolver),
       dns_refresh_rate_ms_(
           std::chrono::milliseconds(PROTOBUF_GET_MS_OR_DEFAULT(cluster, dns_refresh_rate, 5000))),
-      tls_(tls.allocateSlot()),
-      resolve_timer_(dispatcher.createTimer([this]() -> void { startResolve(); })) {
+      tls_(tls.allocateSlot()), resolve_timer_(factory_context.dispatcher().createTimer(
+                                    [this]() -> void { startResolve(); })) {
   const auto& hosts = cluster.hosts();
   if (hosts.size() != 1) {
     throw EnvoyException("logical_dns clusters must have a single host");

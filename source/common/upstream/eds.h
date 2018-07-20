@@ -18,12 +18,10 @@ namespace Upstream {
 class EdsClusterImpl : public BaseDynamicClusterImpl,
                        Config::SubscriptionCallbacks<envoy::api::v2::ClusterLoadAssignment> {
 public:
-  EdsClusterImpl(
-      const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
-      Ssl::ContextManager& ssl_context_manager, const LocalInfo::LocalInfo& local_info,
-      ClusterManager& cm, Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
-      bool added_via_api,
-      Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context);
+  EdsClusterImpl(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+                 bool added_via_api,
+                 Server::Configuration::TransportSocketFactoryContext& factory_context,
+                 Stats::ScopePtr stats_scope);
 
   // Upstream::Cluster
   InitializePhase initializePhase() const override { return InitializePhase::Secondary; }

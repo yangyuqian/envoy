@@ -12,41 +12,6 @@ namespace Envoy {
 namespace Secret {
 
 /**
- * DynamicTlsCertificateSecretProviderFactoryContext passed to
- * DynamicTlsCertificateSecretProviderFactory to access resources which are needed for creating
- * dynamic tls certificate secret provider.
- */
-class DynamicTlsCertificateSecretProviderFactoryContext {
-public:
-  virtual ~DynamicTlsCertificateSecretProviderFactoryContext() {}
-
-  /**
-   * @return information about the local environment the server is running in.
-   */
-  virtual const LocalInfo::LocalInfo& local_info() PURE;
-
-  /**
-   * @return Event::Dispatcher& the main thread's dispatcher.
-   */
-  virtual Event::Dispatcher& dispatcher() PURE;
-
-  /**
-   * @return RandomGenerator& the random generator for the server.
-   */
-  virtual Runtime::RandomGenerator& random() PURE;
-
-  /**
-   * @return the server-wide stats store.
-   */
-  virtual Stats::Store& stats() PURE;
-
-  /**
-   * @return Upstream::ClusterManager.
-   */
-  virtual Upstream::ClusterManager& cluster_manager() PURE;
-};
-
-/**
  * Factory for creating dynamic TlsCertificate secret provider.
  */
 class DynamicTlsCertificateSecretProviderFactory {
@@ -65,6 +30,9 @@ public:
   findOrCreate(const envoy::api::v2::core::ConfigSource& sds_config,
                std::string sds_config_name) PURE;
 };
+
+typedef std::unique_ptr<DynamicTlsCertificateSecretProviderFactory>
+    DynamicTlsCertificateSecretProviderFactoryPtr;
 
 } // namespace Secret
 } // namespace Envoy

@@ -18,23 +18,24 @@ namespace Envoy {
 namespace Upstream {
 
 EdsClusterImpl::EdsClusterImpl(
-    const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
-    Ssl::ContextManager& ssl_context_manager, const LocalInfo::LocalInfo& local_info,
-    ClusterManager& cm, Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
-    bool added_via_api,
-    Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context)
-    : BaseDynamicClusterImpl(cluster, runtime, stats, ssl_context_manager, cm, added_via_api,
-                             secret_provider_context),
-      cm_(cm), local_info_(local_info),
+    const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, bool added_via_api,
+    Server::Configuration::TransportSocketFactoryContext& factory_context,
+    Stats::ScopePtr stats_scope)
+    : BaseDynamicClusterImpl(cluster, runtime, added_via_api, factory_context,
+                             std::move(stats_scope)),
+      cm_(factory_context.clusterManager()), local_info_(factory_context.local_info()),
       cluster_name_(cluster.eds_cluster_config().service_name().empty()
                         ? cluster.name()
                         : cluster.eds_cluster_config().service_name()) {
-  Config::Utility::checkLocalInfo("eds", local_info);
+  Config::Utility::checkLocalInfo("eds", local_info_);
 
   const auto& eds_config = cluster.eds_cluster_config().eds_config();
+  Event::Dispatcher& dispatcher = factory_context.dispatcher();
+  Runtime::RandomGenerator& random = factory_context.random();
+  Upstream::ClusterManager& cm = factory_context.clusterManager();
   subscription_ = Config::SubscriptionFactory::subscriptionFromConfigSource<
       envoy::api::v2::ClusterLoadAssignment>(
-      eds_config, local_info.node(), dispatcher, cm, random, info_->statsScope(),
+      eds_config, local_info_.node(), dispatcher, cm, random, info_->statsScope(),
       [this, &eds_config, &cm, &dispatcher,
        &random]() -> Config::Subscription<envoy::api::v2::ClusterLoadAssignment>* {
         return new SdsSubscription(info_->stats(), eds_config, cm, dispatcher, random);

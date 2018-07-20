@@ -21,6 +21,7 @@
 #include "envoy/runtime/runtime.h"
 #include "envoy/secret/dynamic_secret_provider_factory.h"
 #include "envoy/secret/secret_manager.h"
+#include "envoy/server/transport_socket_config.h"
 #include "envoy/ssl/context_manager.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
@@ -473,10 +474,10 @@ public:
   void initialize(std::function<void()> callback) override;
 
 protected:
-  ClusterImplBase(
-      const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
-      Ssl::ContextManager& ssl_context_manager, ClusterManager& cm, bool added_via_api,
-      Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context);
+  ClusterImplBase(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+                  bool added_via_api,
+                  Server::Configuration::TransportSocketFactoryContext& factory_context,
+                  Stats::ScopePtr stats_scope);
 
   /**
    * Overridden by every concrete cluster. The cluster should do whatever pre-init is needed. E.g.,
@@ -579,10 +580,10 @@ private:
  */
 class StaticClusterImpl : public ClusterImplBase {
 public:
-  StaticClusterImpl(
-      const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
-      Ssl::ContextManager& ssl_context_manager, ClusterManager& cm, bool added_via_api,
-      Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context);
+  StaticClusterImpl(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+                    bool added_via_api,
+                    Server::Configuration::TransportSocketFactoryContext& factory_context,
+                    Stats::ScopePtr stats_scope);
 
   // Upstream::Cluster
   InitializePhase initializePhase() const override { return InitializePhase::Primary; }
@@ -611,11 +612,10 @@ protected:
  */
 class StrictDnsClusterImpl : public BaseDynamicClusterImpl {
 public:
-  StrictDnsClusterImpl(
-      const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime, Stats::Store& stats,
-      Ssl::ContextManager& ssl_context_manager, Network::DnsResolverSharedPtr dns_resolver,
-      ClusterManager& cm, Event::Dispatcher& dispatcher, bool added_via_api,
-      Secret::DynamicTlsCertificateSecretProviderFactoryContext& secret_provider_context);
+  StrictDnsClusterImpl(const envoy::api::v2::Cluster& cluster, Runtime::Loader& runtime,
+                       Network::DnsResolverSharedPtr dns_resolver, bool added_via_api,
+                       Server::Configuration::TransportSocketFactoryContext& factory_context,
+                       Stats::ScopePtr stats_scope);
 
   // Upstream::Cluster
   InitializePhase initializePhase() const override { return InitializePhase::Primary; }
