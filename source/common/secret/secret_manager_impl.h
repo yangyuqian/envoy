@@ -15,8 +15,6 @@ namespace Secret {
 
 class SecretManagerImpl : public SecretManager, Logger::Loggable<Logger::Id::upstream> {
 public:
-  SecretManagerImpl(Server::Instance& server) : server_(server) {}
-
   void addStaticSecret(const envoy::api::v2::auth::Secret& secret) override;
   const Ssl::TlsCertificateConfig* findStaticTlsCertificate(const std::string& name) const override;
 
@@ -30,8 +28,6 @@ public:
 
 private:
   void removeDeletedSecretProvider();
-
-  Server::Instance& server_;
 
   // Manages pairs of secret name and Ssl::TlsCertificateConfig.
   std::unordered_map<std::string, Ssl::TlsCertificateConfigPtr> static_tls_certificate_secrets_;
