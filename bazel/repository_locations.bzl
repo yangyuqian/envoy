@@ -48,7 +48,7 @@ REPOSITORY_LOCATIONS = dict(
         remote = "https://github.com/google/libprotobuf-mutator",
     ),
     com_github_grpc_grpc = dict(
-        commit = "bec3b5ada2c5e5d782dff0b7b5018df646b65cb0",  # v1.12.0
+        commit = "befc7220cadb963755de86763a04ab6f9dc14200",  # v1.13.1
         remote = "https://github.com/grpc/grpc.git",
     ),
     com_github_nodejs_http_parser = dict(
