@@ -293,6 +293,7 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
       metadata_(config.metadata()), common_lb_config_(config.common_lb_config()),
       cluster_socket_options_(parseClusterSocketOptions(config, bind_config)),
       drain_connections_on_host_removal_(config.drain_connections_on_host_removal()) {
+
   switch (config.lb_policy()) {
   case envoy::api::v2::Cluster::ROUND_ROBIN:
     lb_type_ = LoadBalancerType::RoundRobin;
@@ -317,7 +318,7 @@ ClusterInfoImpl::ClusterInfoImpl(const envoy::api::v2::Cluster& config,
     lb_type_ = LoadBalancerType::Maglev;
     break;
   default:
-    NOT_REACHED;
+    NOT_REACHED_GCOVR_EXCL_LINE;
   }
 
   if (config.protocol_selection() == envoy::api::v2::Cluster::USE_CONFIGURED_PROTOCOL) {
@@ -397,7 +398,7 @@ ClusterSharedPtr ClusterImplBase::create(
                                          cm, dispatcher, random, added_via_api));
     break;
   default:
-    NOT_REACHED;
+    NOT_REACHED_GCOVR_EXCL_LINE;
   }
 
   if (!cluster.health_checks().empty()) {
@@ -646,7 +647,7 @@ ClusterInfoImpl::ResourceManagers::load(const envoy::api::v2::Cluster& config,
     priority_name = "high";
     break;
   default:
-    NOT_REACHED;
+    NOT_REACHED_GCOVR_EXCL_LINE;
   }
 
   const std::string runtime_prefix =
@@ -721,7 +722,8 @@ void PriorityStateManager::updateClusterPrioritySet(
   HostVectorSharedPtr hosts(std::move(current_hosts));
   LocalityWeightsMap empty_locality_map;
   LocalityWeightsMap& locality_weights_map =
-      priority_state_.empty() ? empty_locality_map : priority_state_[priority].second;
+      priority_state_.size() > priority ? priority_state_[priority].second : empty_locality_map;
+  ASSERT(priority_state_.size() > priority || locality_weights_map.empty());
   LocalityWeightsSharedPtr locality_weights;
   std::vector<HostVector> per_locality;
 
@@ -978,7 +980,7 @@ StrictDnsClusterImpl::StrictDnsClusterImpl(const envoy::api::v2::Cluster& cluste
     dns_lookup_family_ = Network::DnsLookupFamily::Auto;
     break;
   default:
-    NOT_REACHED;
+    NOT_REACHED_GCOVR_EXCL_LINE;
   }
 
   for (const auto& host : cluster.hosts()) {

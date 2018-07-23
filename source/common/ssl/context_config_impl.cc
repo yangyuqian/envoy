@@ -126,10 +126,10 @@ unsigned ContextConfigImpl::tlsVersionFromProto(
   case envoy::api::v2::auth::TlsParameters::TLSv1_3:
     return TLS1_3_VERSION;
   default:
-    NOT_IMPLEMENTED;
+    NOT_IMPLEMENTED_GCOVR_EXCL_LINE;
   }
 
-  NOT_REACHED;
+  NOT_REACHED_GCOVR_EXCL_LINE;
 }
 
 const std::string& ContextConfigImpl::certChain() const {
