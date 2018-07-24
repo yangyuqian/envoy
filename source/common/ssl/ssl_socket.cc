@@ -388,8 +388,7 @@ ClientSslSocketFactory::ClientSslSocketFactory(ClientContextConfigPtr config,
     : config_(std::move(config)), ssl_ctx_(manager.createSslClientContext(stats_scope, *config_)) {}
 
 Network::TransportSocketPtr ClientSslSocketFactory::createTransportSocket() const {
-  return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(ssl_ctx_, Ssl::InitialState::Client)
-                  : nullptr;
+  return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(ssl_ctx_, Ssl::InitialState::Client) : nullptr;
 }
 
 bool ClientSslSocketFactory::implementsSecureTransport() const { return true; }
@@ -402,8 +401,7 @@ ServerSslSocketFactory::ServerSslSocketFactory(ServerContextConfigPtr config,
       ssl_ctx_(manager.createSslServerContext(stats_scope, *config_, server_names)) {}
 
 Network::TransportSocketPtr ServerSslSocketFactory::createTransportSocket() const {
-  return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(ssl_ctx_, Ssl::InitialState::Server)
-                  : nullptr;
+  return ssl_ctx_ ? std::make_unique<Ssl::SslSocket>(ssl_ctx_, Ssl::InitialState::Server) : nullptr;
 }
 
 bool ServerSslSocketFactory::implementsSecureTransport() const { return true; }

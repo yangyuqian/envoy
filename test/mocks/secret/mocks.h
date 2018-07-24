@@ -1,5 +1,6 @@
 #pragma once
 
+#include "envoy/secret/dynamic_secret_provider_factory.h"
 #include "envoy/secret/secret_manager.h"
 #include "envoy/ssl/tls_certificate_config.h"
 
@@ -37,6 +38,17 @@ public:
   ~MockDynamicTlsCertificateSecretProvider();
 
   MOCK_CONST_METHOD0(secret, const Ssl::TlsCertificateConfig*());
+};
+
+class MockDynamicTlsCertificateSecretProviderFactory
+    : public DynamicTlsCertificateSecretProviderFactory {
+public:
+  MockDynamicTlsCertificateSecretProviderFactory();
+  ~MockDynamicTlsCertificateSecretProviderFactory();
+
+  MOCK_METHOD2(findOrCreate, DynamicTlsCertificateSecretProviderSharedPtr(
+                                 const envoy::api::v2::core::ConfigSource& sds_config,
+                                 std::string sds_config_name));
 };
 
 } // namespace Secret

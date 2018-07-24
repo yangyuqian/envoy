@@ -7,6 +7,7 @@
 #include "common/ssl/ssl_socket.h"
 
 #include "test/integration/server.h"
+#include "test/mocks/secret/mocks.h"
 #include "test/mocks/server/mocks.h"
 #include "test/test_common/environment.h"
 #include "test/test_common/network_utility.h"
@@ -60,9 +61,9 @@ createClientSslTransportSocketFactory(bool alpn, bool san, ContextManager& conte
   }
   Server::MockInstance server;
   Json::ObjectSharedPtr loader = TestEnvironment::jsonLoadFromString(target);
-  NiceMock<Init::MockManager> init_manager;
-  ClientContextConfigPtr cfg =
-      std::make_unique<ClientContextConfigImpl>(*loader, server.secretManager(), init_manager);
+  testing::NiceMock<Secret::MockDynamicTlsCertificateSecretProviderFactory> secret_provider_factory;
+  ClientContextConfigPtr cfg = std::make_unique<ClientContextConfigImpl>(
+      *loader, server.secretManager(), secret_provider_factory);
   static auto* client_stats_store = new Stats::TestIsolatedStoreImpl();
   return Network::TransportSocketFactoryPtr{
       new Ssl::ClientSslSocketFactory(std::move(cfg), context_manager, *client_stats_store)};
