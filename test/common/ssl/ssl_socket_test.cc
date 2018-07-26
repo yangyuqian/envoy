@@ -2604,8 +2604,8 @@ public:
     listener_ = dispatcher_->createListener(socket_, listener_callbacks_, true, false);
 
     client_ctx_loader_ = TestEnvironment::jsonLoadFromString(client_ctx_json_);
-    client_ctx_config_.reset(
-        new ClientContextConfigImpl(*client_ctx_loader_, server_.secretManager(), secret_provider_factory_));
+    client_ctx_config_.reset(new ClientContextConfigImpl(
+        *client_ctx_loader_, server_.secretManager(), secret_provider_factory_));
 
     client_ssl_socket_factory_.reset(
         new ClientSslSocketFactory(std::move(client_ctx_config_), *manager_, stats_store_));
