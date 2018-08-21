@@ -51,8 +51,6 @@ void SdsApi::onConfigUpdate(const ResourceVector& resources, const std::string&)
         fmt::format("Unexpected SDS secret (expecting {}): {}", sds_config_name_, secret.name()));
   }
 
-  ENVOY_LOG(info, "Received secret (name: {}), content: {}", secret.DebugString(), secret.name());
-
   const uint64_t new_hash = MessageUtil::hash(secret);
   if (new_hash != secret_hash_ &&
       secret.type_case() == envoy::api::v2::auth::Secret::TypeCase::kTlsCertificate) {

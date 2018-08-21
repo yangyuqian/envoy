@@ -68,7 +68,6 @@ ContextConfigImpl::ContextConfigImpl(
       max_protocol_version_(
           tlsVersionFromProto(config.tls_params().tls_maximum_protocol_version(), TLS1_2_VERSION)) {
 
-  ENVOY_LOG(info, "Received ca_cert (ca_cert_: {})", ca_cert_);
   readCertChainConfig(config, secret_provider_factory);
 
   if (ca_cert_.empty()) {
