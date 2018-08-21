@@ -48,8 +48,8 @@ REPOSITORY_LOCATIONS = dict(
         remote = "https://github.com/google/libprotobuf-mutator",
     ),
     com_github_grpc_grpc = dict(
-        commit = "3eedb606a07738e5446ba852085f676b134ecca4",  # v1.14.0
-        remote = "https://github.com/grpc/grpc.git",
+        commit = "8e40a5b79a1e2f0535e71aab2bdc4844e5e5afd1",  # latest
+        remote = "https://github.com/qiwzhang/grpc.git",
     ),
     com_github_nanopb_nanopb = dict(
         # From: https://github.com/grpc/grpc/blob/v1.14.0/bazel/grpc_deps.bzl#L123
