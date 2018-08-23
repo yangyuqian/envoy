@@ -64,18 +64,18 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
   }
 
   int verify_mode = SSL_VERIFY_NONE;
-
-  if (!config.caCert().empty()) {
-    ca_file_path_ = config.caCertPath();
+  const auto& certificate_validation_context = *config.certificateValidationContext();
+  if (!certificate_validation_context.caCert().empty()) {
+    ca_file_path_ = certificate_validation_context.caCertPath();
     bssl::UniquePtr<BIO> bio(
-        BIO_new_mem_buf(const_cast<char*>(config.caCert().data()), config.caCert().size()));
+        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.caCert().data()), certificate_validation_context.caCert().size()));
     RELEASE_ASSERT(bio != nullptr, "");
     // Based on BoringSSL's X509_load_cert_crl_file().
     bssl::UniquePtr<STACK_OF(X509_INFO)> list(
         PEM_X509_INFO_read_bio(bio.get(), nullptr, nullptr, nullptr));
     if (list == nullptr) {
       throw EnvoyException(
-          fmt::format("Failed to load trusted CA certificates from {}", config.caCertPath()));
+          fmt::format("Failed to load trusted CA certificates from {}", certificate_validation_context.caCertPath()));
     }
 
     X509_STORE* store = SSL_CTX_get_cert_store(ctx_.get());
@@ -93,7 +93,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
     }
     if (ca_cert_ == nullptr) {
       throw EnvoyException(
-          fmt::format("Failed to load trusted CA certificates from {}", config.caCertPath()));
+          fmt::format("Failed to load trusted CA certificates from {}", certificate_validation_context.caCertPath()));
     }
     verify_mode = SSL_VERIFY_PEER;
     verify_trusted_ca_ = true;
@@ -102,15 +102,15 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
     // directly. However, our new callback is still calling X509_verify_cert() under
     // the hood. Therefore, to ignore cert expiration, we need to set the callback
     // for X509_verify_cert to ignore that error.
-    if (config.allowExpiredCertificate()) {
+    if (certificate_validation_context.allowExpiredCertificate()) {
       X509_STORE_set_verify_cb(store, ContextImpl::ignoreCertificateExpirationCallback);
     }
   }
 
-  if (!config.certificateRevocationList().empty()) {
+  if (!certificate_validation_context.certificateRevocationList().empty()) {
     bssl::UniquePtr<BIO> bio(
-        BIO_new_mem_buf(const_cast<char*>(config.certificateRevocationList().data()),
-                        config.certificateRevocationList().size()));
+        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.certificateRevocationList().data()),
+                        certificate_validation_context.certificateRevocationList().size()));
     RELEASE_ASSERT(bio != nullptr, "");
 
     // Based on BoringSSL's X509_load_cert_crl_file().
@@ -118,7 +118,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
         PEM_X509_INFO_read_bio(bio.get(), nullptr, nullptr, nullptr));
     if (list == nullptr) {
       throw EnvoyException(
-          fmt::format("Failed to load CRL from {}", config.certificateRevocationListPath()));
+          fmt::format("Failed to load CRL from {}", certificate_validation_context.certificateRevocationListPath()));
     }
 
     X509_STORE* store = SSL_CTX_get_cert_store(ctx_.get());
@@ -131,13 +131,13 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
     X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
   }
 
-  if (!config.verifySubjectAltNameList().empty()) {
-    verify_subject_alt_name_list_ = config.verifySubjectAltNameList();
+  if (!certificate_validation_context.verifySubjectAltNameList().empty()) {
+    verify_subject_alt_name_list_ = certificate_validation_context.verifySubjectAltNameList();
     verify_mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
   }
 
-  if (!config.verifyCertificateHashList().empty()) {
-    for (auto hash : config.verifyCertificateHashList()) {
+  if (!certificate_validation_context.verifyCertificateHashList().empty()) {
+    for (auto hash : certificate_validation_context.verifyCertificateHashList()) {
       // Remove colons from the 95 chars long colon-separated "fingerprint"
       // in order to get the hex-encoded string.
       if (hash.size() == 95) {
@@ -152,8 +152,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
     verify_mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
   }
 
-  if (!config.verifyCertificateSpkiList().empty()) {
-    for (auto hash : config.verifyCertificateSpkiList()) {
+  if (!certificate_validation_context.verifyCertificateSpkiList().empty()) {
+    for (auto hash : certificate_validation_context.verifyCertificateSpkiList()) {
       const auto decoded = Base64::decode(hash);
       if (decoded.size() != SHA256_DIGEST_LENGTH) {
         throw EnvoyException(fmt::format("Invalid base64-encoded SHA-256 {}", hash));
@@ -501,9 +501,10 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope, const ServerContextCon
   if (config.tlsCertificate() == nullptr) {
     throw EnvoyException("Server TlsCertificates must have a certificate specified");
   }
-  if (!config.caCert().empty()) {
+  const auto& certificate_validation_context = *config.certificateValidationContext();
+  if (!certificate_validation_context.caCert().empty()) {
     bssl::UniquePtr<BIO> bio(
-        BIO_new_mem_buf(const_cast<char*>(config.caCert().data()), config.caCert().size()));
+        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.caCert().data()), certificate_validation_context.caCert().size()));
     RELEASE_ASSERT(bio != nullptr, "");
     // Based on BoringSSL's SSL_add_file_cert_subjects_to_stack().
     bssl::UniquePtr<STACK_OF(X509_NAME)> list(sk_X509_NAME_new(
@@ -517,7 +518,7 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope, const ServerContextCon
       X509_NAME* name = X509_get_subject_name(cert.get());
       if (name == nullptr) {
         throw EnvoyException(fmt::format("Failed to load trusted client CA certificates from {}",
-                                         config.caCertPath()));
+                                         certificate_validation_context.caCertPath()));
       }
       // Check for duplicates.
       if (sk_X509_NAME_find(list.get(), nullptr, name)) {
@@ -526,7 +527,7 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope, const ServerContextCon
       bssl::UniquePtr<X509_NAME> name_dup(X509_NAME_dup(name));
       if (name_dup == nullptr || !sk_X509_NAME_push(list.get(), name_dup.release())) {
         throw EnvoyException(fmt::format("Failed to load trusted client CA certificates from {}",
-                                         config.caCertPath()));
+                                         certificate_validation_context.caCertPath()));
       }
     }
     // Check for EOF.
@@ -535,7 +536,7 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope, const ServerContextCon
       ERR_clear_error();
     } else {
       throw EnvoyException(fmt::format("Failed to load trusted client CA certificates from {}",
-                                       config.caCertPath()));
+                                       certificate_validation_context.caCertPath()));
     }
     SSL_CTX_set_client_CA_list(ctx_.get(), list.release());
 

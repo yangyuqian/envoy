@@ -2,6 +2,7 @@
 
 #include "envoy/common/pure.h"
 #include "envoy/secret/secret_callbacks.h"
+#include "envoy/ssl/certificate_validation_context_config.h"
 #include "envoy/ssl/tls_certificate_config.h"
 
 namespace Envoy {
@@ -36,6 +37,9 @@ public:
 
 typedef SecretProvider<Ssl::TlsCertificateConfig> TlsCertificateConfigProvider;
 typedef std::shared_ptr<TlsCertificateConfigProvider> TlsCertificateConfigProviderSharedPtr;
+
+typedef SecretProvider<Ssl::CertificateValidationContextConfig> CertificateValidationContextConfigProvider;
+typedef std::shared_ptr<CertificateValidationContextConfigProvider> CertificateValidationContextConfigProviderSharedPtr;
 
 } // namespace Secret
 } // namespace Envoy
