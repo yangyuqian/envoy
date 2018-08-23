@@ -9,7 +9,7 @@ namespace Envoy {
 namespace Ssl {
 
 class CertificateValidationContextConfig {
- public:
+public:
   virtual ~CertificateValidationContextConfig() {}
 
   /**

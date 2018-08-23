@@ -30,7 +30,9 @@ public:
     return tls_certficate_provider_ == nullptr ? nullptr : tls_certficate_provider_->secret();
   }
   const CertificateValidationContextConfig* certificateValidationContext() const override {
-    return certficate_validation_context_provider_ == nullptr ? nullptr : certficate_validation_context_provider_->secret();
+    return certficate_validation_context_provider_ == nullptr
+               ? nullptr
+               : certficate_validation_context_provider_->secret();
   }
   unsigned minProtocolVersion() const override { return min_protocol_version_; };
   unsigned maxProtocolVersion() const override { return max_protocol_version_; };
@@ -69,7 +71,8 @@ private:
   const std::string ecdh_curves_;
   Secret::SecretCallbacks* secret_callback_;
   Secret::TlsCertificateConfigProviderSharedPtr tls_certficate_provider_;
-  Secret::CertificateValidationContextConfigProviderSharedPtr certficate_validation_context_provider_;
+  Secret::CertificateValidationContextConfigProviderSharedPtr
+      certficate_validation_context_provider_;
   const unsigned min_protocol_version_;
   const unsigned max_protocol_version_;
 };

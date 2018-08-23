@@ -5,8 +5,8 @@
 #include "envoy/secret/secret_manager.h"
 #include "envoy/secret/secret_provider.h"
 #include "envoy/server/transport_socket_config.h"
-#include "envoy/ssl/tls_certificate_config.h"
 #include "envoy/ssl/certificate_validation_context_config.h"
+#include "envoy/ssl/tls_certificate_config.h"
 
 #include "common/common/logger.h"
 
@@ -26,14 +26,17 @@ public:
   TlsCertificateConfigProviderSharedPtr createInlineTlsCertificateProvider(
       const envoy::api::v2::auth::TlsCertificate& tls_certificate) override;
 
-  CertificateValidationContextConfigProviderSharedPtr createInlineCertificateValidationContextProvider(
-      const envoy::api::v2::auth::CertificateValidationContext& certificate_validation_context) override;
+  CertificateValidationContextConfigProviderSharedPtr
+  createInlineCertificateValidationContextProvider(
+      const envoy::api::v2::auth::CertificateValidationContext& certificate_validation_context)
+      override;
 
   TlsCertificateConfigProviderSharedPtr findOrCreateDynamicSecretProvider(
       const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name,
       Server::Configuration::TransportSocketFactoryContext& secret_provider_context) override;
 
-  CertificateValidationContextConfigProviderSharedPtr findOrCreateDynamicCertificateValidationContextProvider(
+  CertificateValidationContextConfigProviderSharedPtr
+  findOrCreateDynamicCertificateValidationContextProvider(
       const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name,
       Server::Configuration::TransportSocketFactoryContext& secret_provider_context) override;
 

@@ -17,8 +17,9 @@ CertificateValidationContextConfigImpl::CertificateValidationContextConfigImpl(
       ca_cert_path_(Config::DataSource::getPath(config.trusted_ca())
                         .value_or(ca_cert_.empty() ? EMPTY_STRING : INLINE_STRING)),
       certificate_revocation_list_(Config::DataSource::read(config.crl(), true)),
-      certificate_revocation_list_path_(Config::DataSource::getPath(config.crl())
-                                            .value_or(certificate_revocation_list_.empty() ? EMPTY_STRING : INLINE_STRING)),
+      certificate_revocation_list_path_(
+          Config::DataSource::getPath(config.crl())
+              .value_or(certificate_revocation_list_.empty() ? EMPTY_STRING : INLINE_STRING)),
       verify_subject_alt_name_list_(config.verify_subject_alt_name().begin(),
                                     config.verify_subject_alt_name().end()),
       verify_certificate_hash_list_(config.verify_certificate_hash().begin(),

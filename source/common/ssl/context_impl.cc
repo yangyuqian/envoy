@@ -68,14 +68,15 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
   if (!certificate_validation_context.caCert().empty()) {
     ca_file_path_ = certificate_validation_context.caCertPath();
     bssl::UniquePtr<BIO> bio(
-        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.caCert().data()), certificate_validation_context.caCert().size()));
+        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.caCert().data()),
+                        certificate_validation_context.caCert().size()));
     RELEASE_ASSERT(bio != nullptr, "");
     // Based on BoringSSL's X509_load_cert_crl_file().
     bssl::UniquePtr<STACK_OF(X509_INFO)> list(
         PEM_X509_INFO_read_bio(bio.get(), nullptr, nullptr, nullptr));
     if (list == nullptr) {
-      throw EnvoyException(
-          fmt::format("Failed to load trusted CA certificates from {}", certificate_validation_context.caCertPath()));
+      throw EnvoyException(fmt::format("Failed to load trusted CA certificates from {}",
+                                       certificate_validation_context.caCertPath()));
     }
 
     X509_STORE* store = SSL_CTX_get_cert_store(ctx_.get());
@@ -92,8 +93,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
       }
     }
     if (ca_cert_ == nullptr) {
-      throw EnvoyException(
-          fmt::format("Failed to load trusted CA certificates from {}", certificate_validation_context.caCertPath()));
+      throw EnvoyException(fmt::format("Failed to load trusted CA certificates from {}",
+                                       certificate_validation_context.caCertPath()));
     }
     verify_mode = SSL_VERIFY_PEER;
     verify_trusted_ca_ = true;
@@ -108,9 +109,9 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
   }
 
   if (!certificate_validation_context.certificateRevocationList().empty()) {
-    bssl::UniquePtr<BIO> bio(
-        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.certificateRevocationList().data()),
-                        certificate_validation_context.certificateRevocationList().size()));
+    bssl::UniquePtr<BIO> bio(BIO_new_mem_buf(
+        const_cast<char*>(certificate_validation_context.certificateRevocationList().data()),
+        certificate_validation_context.certificateRevocationList().size()));
     RELEASE_ASSERT(bio != nullptr, "");
 
     // Based on BoringSSL's X509_load_cert_crl_file().
@@ -118,7 +119,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const ContextConfig& config)
         PEM_X509_INFO_read_bio(bio.get(), nullptr, nullptr, nullptr));
     if (list == nullptr) {
       throw EnvoyException(
-          fmt::format("Failed to load CRL from {}", certificate_validation_context.certificateRevocationListPath()));
+          fmt::format("Failed to load CRL from {}",
+                      certificate_validation_context.certificateRevocationListPath()));
     }
 
     X509_STORE* store = SSL_CTX_get_cert_store(ctx_.get());
@@ -504,7 +506,8 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope, const ServerContextCon
   const auto& certificate_validation_context = *config.certificateValidationContext();
   if (!certificate_validation_context.caCert().empty()) {
     bssl::UniquePtr<BIO> bio(
-        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.caCert().data()), certificate_validation_context.caCert().size()));
+        BIO_new_mem_buf(const_cast<char*>(certificate_validation_context.caCert().data()),
+                        certificate_validation_context.caCert().size()));
     RELEASE_ASSERT(bio != nullptr, "");
     // Based on BoringSSL's SSL_add_file_cert_subjects_to_stack().
     bssl::UniquePtr<STACK_OF(X509_NAME)> list(sk_X509_NAME_new(

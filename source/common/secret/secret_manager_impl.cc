@@ -5,8 +5,8 @@
 #include "common/common/assert.h"
 #include "common/secret/sds_api.h"
 #include "common/secret/secret_provider_impl.h"
-#include "common/ssl/tls_certificate_config_impl.h"
 #include "common/ssl/certificate_validation_context_config_impl.h"
+#include "common/ssl/tls_certificate_config_impl.h"
 
 namespace Envoy {
 namespace Secret {
@@ -26,10 +26,11 @@ void SecretManagerImpl::addStaticSecret(const envoy::api::v2::auth::Secret& secr
   case envoy::api::v2::auth::Secret::TypeCase::kValidationContext: {
     auto secret_provider =
         std::make_shared<CertificateValidationContextConfigImpl>(secret.validation_context());
-    if (!static_certificate_validation_context_providers_.insert(std::make_pair(secret.name(), secret_provider))
-        .second) {
-      throw EnvoyException(
-          fmt::format("Duplicate static CertificateValidationContext secret name {}", secret.name()));
+    if (!static_certificate_validation_context_providers_
+             .insert(std::make_pair(secret.name(), secret_provider))
+             .second) {
+      throw EnvoyException(fmt::format(
+          "Duplicate static CertificateValidationContext secret name {}", secret.name()));
     }
     break;
   }
@@ -47,7 +48,8 @@ SecretManagerImpl::findStaticTlsCertificateProvider(const std::string& name) con
 CertificateValidationContextConfigProviderSharedPtr
 SecretManagerImpl::findStaticCertificateValidationContextProvider(const std::string& name) const {
   auto secret = static_certificate_validation_context_providers_.find(name);
-  return (secret != static_certificate_validation_context_providers_.end()) ? secret->second : nullptr;
+  return (secret != static_certificate_validation_context_providers_.end()) ? secret->second
+                                                                            : nullptr;
 }
 
 TlsCertificateConfigProviderSharedPtr SecretManagerImpl::createInlineTlsCertificateProvider(
@@ -55,7 +57,8 @@ TlsCertificateConfigProviderSharedPtr SecretManagerImpl::createInlineTlsCertific
   return std::make_shared<TlsCertificateConfigProviderImpl>(tls_certificate);
 }
 
-CertificateValidationContextConfigProviderSharedPtr SecretManagerImpl::createInlineCertificateValidationContextProvider(
+CertificateValidationContextConfigProviderSharedPtr
+SecretManagerImpl::createInlineCertificateValidationContextProvider(
     const envoy::api::v2::auth::CertificateValidationContext& certificate_validation_context) {
   return std::make_shared<CertificateValidationContextConfigImpl>(certificate_validation_context);
 }
@@ -92,13 +95,15 @@ TlsCertificateConfigProviderSharedPtr SecretManagerImpl::findOrCreateDynamicSecr
   return secret_provider;
 }
 
-void SecretManagerImpl::removeDynamicCertificateValidationContextProvider(const std::string& map_key) {
+void SecretManagerImpl::removeDynamicCertificateValidationContextProvider(
+    const std::string& map_key) {
   ENVOY_LOG(debug, "Unregister secret provider. hash key: {}", map_key);
 
   RELEASE_ASSERT(dynamic_certificate_validation_context_providers_.erase(map_key) == 1, "");
 }
 
-CertificateValidationContextConfigProviderSharedPtr SecretManagerImpl::findOrCreateDynamicCertificateValidationContextProvider(
+CertificateValidationContextConfigProviderSharedPtr
+SecretManagerImpl::findOrCreateDynamicCertificateValidationContextProvider(
     const envoy::api::v2::core::ConfigSource& config_source, const std::string& config_name,
     Server::Configuration::TransportSocketFactoryContext& secret_provider_context) {
   const std::string map_key = std::to_string(MessageUtil::hash(sds_config_source)) + config_name;

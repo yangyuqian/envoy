@@ -38,8 +38,10 @@ public:
 typedef SecretProvider<Ssl::TlsCertificateConfig> TlsCertificateConfigProvider;
 typedef std::shared_ptr<TlsCertificateConfigProvider> TlsCertificateConfigProviderSharedPtr;
 
-typedef SecretProvider<Ssl::CertificateValidationContextConfig> CertificateValidationContextConfigProvider;
-typedef std::shared_ptr<CertificateValidationContextConfigProvider> CertificateValidationContextConfigProviderSharedPtr;
+typedef SecretProvider<Ssl::CertificateValidationContextConfig>
+    CertificateValidationContextConfigProvider;
+typedef std::shared_ptr<CertificateValidationContextConfigProvider>
+    CertificateValidationContextConfigProviderSharedPtr;
 
 } // namespace Secret
 } // namespace Envoy

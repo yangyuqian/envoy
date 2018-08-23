@@ -45,7 +45,8 @@ Secret::TlsCertificateConfigProviderSharedPtr getTlsCertificateConfigProvider(
   return nullptr;
 }
 
-Secret::CertificateValidationContextConfigProviderSharedPtr getCertificateValidationContextConfigProvider(
+Secret::CertificateValidationContextConfigProviderSharedPtr
+getCertificateValidationContextConfigProvider(
     const envoy::api::v2::auth::CommonTlsContext& config,
     Server::Configuration::TransportSocketFactoryContext& factory_context) {
   if (!config.validation_context().empty()) {
@@ -56,15 +57,18 @@ Secret::CertificateValidationContextConfigProviderSharedPtr getCertificateValida
     const auto& sds_secret_config = config.tls_certificate_sds_secret_configs(0);
     if (!sds_secret_config.has_sds_config()) {
       // static secret
-      auto secret_provider = factory_context.secretManager().findStaticCertificateValidationContextProvider(
-          sds_secret_config.name());
+      auto secret_provider =
+          factory_context.secretManager().findStaticCertificateValidationContextProvider(
+              sds_secret_config.name());
       if (!secret_provider) {
-        throw EnvoyException(fmt::format("Unknown static certificate validation context: {}", sds_secret_config.name()));
+        throw EnvoyException(fmt::format("Unknown static certificate validation context: {}",
+                                         sds_secret_config.name()));
       }
       return secret_provider;
     } else {
-      return factory_context.secretManager().findOrCreateDynamicCertificateValidationContextProvider(
-          sds_secret_config.sds_config(), sds_secret_config.name(), factory_context);
+      return factory_context.secretManager()
+          .findOrCreateDynamicCertificateValidationContextProvider(
+              sds_secret_config.sds_config(), sds_secret_config.name(), factory_context);
     }
   }
   return nullptr;
@@ -99,12 +103,12 @@ ContextConfigImpl::ContextConfigImpl(
           RepeatedPtrUtil::join(config.tls_params().ecdh_curves(), ":"), DEFAULT_ECDH_CURVES)),
       secret_callback_(nullptr),
       tls_certficate_provider_(getTlsCertificateConfigProvider(config, factory_context)),
-      certficate_validation_context_provider_(getCertificateValidationContextConfigProvider(config, factory_context)),
+      certficate_validation_context_provider_(
+          getCertificateValidationContextConfigProvider(config, factory_context)),
       min_protocol_version_(
           tlsVersionFromProto(config.tls_params().tls_minimum_protocol_version(), TLS1_VERSION)),
-      max_protocol_version_(
-          tlsVersionFromProto(config.tls_params().tls_maximum_protocol_version(), TLS1_2_VERSION)) {
-}
+      max_protocol_version_(tlsVersionFromProto(config.tls_params().tls_maximum_protocol_version(),
+                                                TLS1_2_VERSION)) {}
 
 ContextConfigImpl::~ContextConfigImpl() {
   if (tls_certficate_provider_.get() != nullptr && secret_callback_ != nullptr) {
