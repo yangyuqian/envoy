@@ -34,46 +34,27 @@ public:
 protected:
   struct ActiveConn;
 
-  struct ConnectionWrapper {
+  struct ConnectionWrapper : public ConnectionPool::ConnectionData {
     ConnectionWrapper(ActiveConn& parent);
+    ~ConnectionWrapper();
 
-    Network::ClientConnection& connection();
-    void addUpstreamCallbacks(ConnectionPool::UpstreamCallbacks& callbacks);
-    void setConnectionState(ConnectionPool::ConnectionStatePtr&& state) {
+    // ConnectionPool::ConnectionData
+    Network::ClientConnection& connection() override;
+    void addUpstreamCallbacks(ConnectionPool::UpstreamCallbacks& callbacks) override;
+    void setConnectionState(ConnectionPool::ConnectionStatePtr&& state) override {
       parent_.setConnectionState(std::move(state));
     };
-    ConnectionPool::ConnectionState* connectionState() { return parent_.connectionState(); }
-
-    void release(bool closed);
-
-    void invalidate() { conn_valid_ = false; }
+    ConnectionPool::ConnectionState* connectionState() override {
+      return parent_.connectionState();
+    }
+    void release() override;
 
     ActiveConn& parent_;
     ConnectionPool::UpstreamCallbacks* callbacks_{};
     bool released_{false};
-    bool conn_valid_{true};
   };
 
-  typedef std::shared_ptr<ConnectionWrapper> ConnectionWrapperSharedPtr;
-
-  struct ConnectionDataImpl : public ConnectionPool::ConnectionData {
-    ConnectionDataImpl(ConnectionWrapperSharedPtr wrapper) : wrapper_(wrapper) {}
-    ~ConnectionDataImpl() { wrapper_->release(false); }
-
-    // ConnectionPool::ConnectionData
-    Network::ClientConnection& connection() override { return wrapper_->connection(); }
-    void addUpstreamCallbacks(ConnectionPool::UpstreamCallbacks& callbacks) override {
-      wrapper_->addUpstreamCallbacks(callbacks);
-    };
-    void setConnectionState(ConnectionPool::ConnectionStatePtr&& state) override {
-      wrapper_->setConnectionState(std::move(state));
-    }
-    ConnectionPool::ConnectionState* connectionState() override {
-      return wrapper_->connectionState();
-    }
-
-    ConnectionWrapperSharedPtr wrapper_;
-  };
+  typedef std::unique_ptr<ConnectionWrapper> ConnectionWrapperPtr;
 
   struct ConnReadFilter : public Network::ReadFilterBaseImpl {
     ConnReadFilter(ActiveConn& parent) : parent_(parent) {}
@@ -108,7 +89,7 @@ protected:
 
     ConnPoolImpl& parent_;
     Upstream::HostDescriptionConstSharedPtr real_host_description_;
-    ConnectionWrapperSharedPtr wrapper_;
+    ConnectionWrapperPtr wrapper_;
     Network::ClientConnectionPtr conn_;
     ConnectionPool::ConnectionStatePtr conn_state_;
     Event::TimerPtr connect_timer_;
