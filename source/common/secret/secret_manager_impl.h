@@ -7,7 +7,7 @@
 #include "envoy/server/transport_socket_config.h"
 #include "envoy/ssl/certificate_validation_context_config.h"
 #include "envoy/ssl/tls_certificate_config.h"
-
+#include "common/common/base64.h"
 #include "common/common/logger.h"
 #include "common/secret/sds_api.h"
 
@@ -51,11 +51,14 @@ private:
                  const std::string& config_name,
                  Server::Configuration::TransportSocketFactoryContext& secret_provider_context) {
       const std::string map_key = sds_config_source.SerializeAsString() + config_name;
-      const std::size_t hash_key = std::hash<std::string>{}(map_key);
+      //const std::size_t hash_key = std::hash<std::string>{}(map_key);
+      const std::size_t hash_key = HashUtil::xxHash64(map_key);
 
       ENVOY_LOG(info, "***config name {}", config_name);
       ENVOY_LOG(info, "***sds_config_source {}", sds_config_source.DebugString());
-      ENVOY_LOG(info, "***mapkey hash_key {}", hash_key);
+      auto temp = sds_config_source.SerializeAsString();      
+      ENVOY_LOG(info, "***sds_config_source binary \n{}\n", Base64::encode(temp.c_str(), temp.size()));
+      ENVOY_LOG(info, "***mapkey hash_key {}\n", hash_key);
       std::shared_ptr<SecretType> secret_provider = dynamic_secret_providers_[map_key].lock();
       if (!secret_provider) {
         // SdsApi is owned by ListenerImpl and ClusterInfo which are destroyed before
@@ -66,8 +69,7 @@ private:
         ASSERT(secret_provider_context.initManager() != nullptr);
         secret_provider = SecretType::create(secret_provider_context, sds_config_source,
                                              config_name, unregister_secret_provider);
-        std::cout << "***address is " << this << std::endl;
-        //ENVOY_LOG(info, "***pointer is {}", (void *)this);                                     
+        //std::cout << "***address is " << this << std::endl;                                     
         ENVOY_LOG(info, "***add secret provider for {}", config_name);
         dynamic_secret_providers_[map_key] = secret_provider;
       }
