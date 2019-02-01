@@ -52,6 +52,9 @@ private:
                  Server::Configuration::TransportSocketFactoryContext& secret_provider_context) {
       const std::string map_key = sds_config_source.SerializeAsString() + config_name;
 
+      ENVOY_LOG(info, "***config name {}", config_name);
+      ENVOY_LOG(info, "***sds_config_source {}", sds_config_source.DebugString());
+
       std::shared_ptr<SecretType> secret_provider = dynamic_secret_providers_[map_key].lock();
       if (!secret_provider) {
         // SdsApi is owned by ListenerImpl and ClusterInfo which are destroyed before
@@ -62,6 +65,7 @@ private:
         ASSERT(secret_provider_context.initManager() != nullptr);
         secret_provider = SecretType::create(secret_provider_context, sds_config_source,
                                              config_name, unregister_secret_provider);
+        ENVOY_LOG(info, "***add secret provider for {}", config_name);
         dynamic_secret_providers_[map_key] = secret_provider;
       }
       return secret_provider;
