@@ -1,5 +1,9 @@
 Version history
 ---------------
+ 1.8.1 (Apr 5, 2019)
+ ===================
+* http: fixed CVE-2019-9900 by rejecting HTTP/1.x headers with embedded NUL characters.
+* http: fixed CVE-2019-9901 by normalizing HTTP paths prior to routing or L7 data plane processing.
 
 1.8.0 (Pending)
 ===============

@@ -127,7 +127,7 @@ public:
   Network::Address::Ipv4Instance local_address_{"127.0.0.1"};
   absl::optional<std::string> user_agent_;
   TracingConnectionManagerConfigPtr tracing_config_;
-  bool proxy_100_continue_ = true;
+  bool proxy_100_continue_{true};
   Http::Http1Settings http1_settings_;
 };
 
