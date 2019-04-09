@@ -64,6 +64,8 @@ void HeaderString::freeDynamic() {
   }
 }
 
+bool HeaderString::valid() const { return validHeaderString(getStringView()); }
+
 void HeaderString::append(const char* data, uint32_t size) {
   switch (type_) {
   case Type::Reference: {
@@ -317,6 +319,8 @@ bool HeaderMapImpl::operator==(const HeaderMapImpl& rhs) const {
 
   return true;
 }
+
+bool HeaderMapImpl::operator!=(const HeaderMapImpl& rhs) const { return !operator==(rhs); }
 
 void HeaderMapImpl::insertByKey(HeaderString&& key, HeaderString&& value) {
   StaticLookupEntry::EntryCb cb = ConstSingleton<StaticLookupTable>::get().find(key.c_str());

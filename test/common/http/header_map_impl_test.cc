@@ -864,7 +864,9 @@ TEST(HeaderMapImplTest, TestHeaderMapImplyCopy) {
   TestHeaderMapImpl baz{{"foo", "baz"}};
   baz = *headers;
   EXPECT_STREQ("bar", baz.get(LowerCaseString("foo"))->value().c_str());
-  baz = baz;
+  TestHeaderMapImpl tac{baz};
+  EXPECT_STREQ("bar", tac.get(LowerCaseString("foo"))->value().c_str());
+  baz = tac;
   EXPECT_STREQ("bar", baz.get(LowerCaseString("foo"))->value().c_str());
 }
 
