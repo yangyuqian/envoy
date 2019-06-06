@@ -7,8 +7,6 @@
 #include "extensions/filters/http/lua/wrappers.h"
 #include "extensions/filters/http/well_known_names.h"
 
-#include "openssl/evp.h"
-
 namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
@@ -129,25 +127,14 @@ public:
   }
 
   static ExportedFunctions exportedFunctions() {
-    return {{"headers", static_luaHeaders},
-            {"body", static_luaBody},
-            {"bodyChunks", static_luaBodyChunks},
-            {"trailers", static_luaTrailers},
-            {"metadata", static_luaMetadata},
-            {"logTrace", static_luaLogTrace},
-            {"logDebug", static_luaLogDebug},
-            {"logInfo", static_luaLogInfo},
-            {"logWarn", static_luaLogWarn},
-            {"logErr", static_luaLogErr},
-            {"logCritical", static_luaLogCritical},
-            {"httpCall", static_luaHttpCall},
-            {"respond", static_luaRespond},
-            {"streamInfo", static_luaStreamInfo},
-            {"connection", static_luaConnection},
-            {"decodeBase64", static_luaDecodeBase64},
-            {"importPublicKey", static_luaImportPublicKey},
-            {"releasePublicKey", static_luaReleasePublicKey},
-            {"verifySignature", static_luaVerifySignature}};
+    return {{"headers", static_luaHeaders},         {"body", static_luaBody},
+            {"bodyChunks", static_luaBodyChunks},   {"trailers", static_luaTrailers},
+            {"metadata", static_luaMetadata},       {"logTrace", static_luaLogTrace},
+            {"logDebug", static_luaLogDebug},       {"logInfo", static_luaLogInfo},
+            {"logWarn", static_luaLogWarn},         {"logErr", static_luaLogErr},
+            {"logCritical", static_luaLogCritical}, {"httpCall", static_luaHttpCall},
+            {"respond", static_luaRespond},         {"streamInfo", static_luaStreamInfo},
+            {"connection", static_luaConnection}};
   }
 
 private:
@@ -223,48 +210,11 @@ private:
   DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaLogCritical);
 
   /**
-   * Verify cryptographic signatures.
-   * @param 1 (void*)  pointer to public key
-   * @param 2 (string) hash function(including MD4, MD5, SHA1, SHA224, SHA256, SHA384, SHA512,
-   * MD5_SHA1)
-   * @param 3 (string) signature
-   * @param 4 (int)    length of signature
-   * @param 5 (string) clear text
-   * @param 6 (int)    length of clear text
-   * @return (bool, string) If the first element is true, the second element is empty; otherwise,
-   * the second element stores the error message
-   */
-  DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaVerifySignature);
-
-  /**
-   * Decode string encoded in base64.
-   * @param 1 (string) string encoded in base64
-   * @return nil or raw string
-   */
-  DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaDecodeBase64);
-
-  /**
-   * Import public key.
-   * @param 1 (string) keyder string
-   * @param 2 (int)    length of keyder string
-   * @return pointer to public key
-   */
-  DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaImportPublicKey);
-
-  /**
-   * Release public key.
-   * @param 1 (void*) pointer to public key
-   */
-  DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaReleasePublicKey);
-
-  /**
    * This is the closure/iterator returned by luaBodyChunks() above.
    */
   DECLARE_LUA_CLOSURE(StreamHandleWrapper, luaBodyIterator);
 
   static Http::HeaderMapPtr buildHeadersFromTable(lua_State* state, int table_index);
-
-  static const EVP_MD* getDigest(const absl::string_view& hash_name);
 
   // Filters::Common::Lua::BaseLuaObject
   void onMarkDead() override {
