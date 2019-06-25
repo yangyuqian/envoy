@@ -380,6 +380,8 @@ void AdminImpl::writeClustersAsJson(Buffer::Instance& response) {
         }
 
         host_status.set_weight(host->weight());
+
+        host_status.set_priority(host->priority());
       }
     }
   }
@@ -435,6 +437,8 @@ void AdminImpl::writeClustersAsText(Buffer::Instance& response) {
         response.add(fmt::format("{}::{}::success_rate::{}\n", cluster.second.get().info()->name(),
                                  host->address()->asString(),
                                  host->outlierDetector().successRate()));
+        response.add(fmt::format("{}::{}::priority::{}\n", cluster.second.get().info()->name(),
+                                 host->address()->asString(), host->priority()));
       }
     }
   }
