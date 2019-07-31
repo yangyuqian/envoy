@@ -331,7 +331,6 @@ void AdminImpl::writeClustersAsJson(Buffer::Instance& response) {
         envoy::admin::v2alpha::HostStatus& host_status = *cluster_status.add_host_statuses();
         Network::Utility::addressToProtobufAddress(*host->address(),
                                                    *host_status.mutable_address());
-        host_status.set_hostname(host->hostname());
         std::vector<Stats::CounterSharedPtr> sorted_counters;
         for (const Stats::CounterSharedPtr& counter : host->counters()) {
           sorted_counters.push_back(counter);
@@ -380,8 +379,6 @@ void AdminImpl::writeClustersAsJson(Buffer::Instance& response) {
         }
 
         host_status.set_weight(host->weight());
-
-        host_status.set_priority(host->priority());
       }
     }
   }
@@ -419,8 +416,6 @@ void AdminImpl::writeClustersAsText(Buffer::Instance& response) {
                                    host->address()->asString(), stat.first, stat.second));
         }
 
-        response.add(fmt::format("{}::{}::hostname::{}\n", cluster.second.get().info()->name(),
-                                 host->address()->asString(), host->hostname()));
         response.add(fmt::format("{}::{}::health_flags::{}\n", cluster.second.get().info()->name(),
                                  host->address()->asString(),
                                  Upstream::HostUtility::healthFlagsToString(*host)));
@@ -437,8 +432,6 @@ void AdminImpl::writeClustersAsText(Buffer::Instance& response) {
         response.add(fmt::format("{}::{}::success_rate::{}\n", cluster.second.get().info()->name(),
                                  host->address()->asString(),
                                  host->outlierDetector().successRate()));
-        response.add(fmt::format("{}::{}::priority::{}\n", cluster.second.get().info()->name(),
-                                 host->address()->asString(), host->priority()));
       }
     }
   }
