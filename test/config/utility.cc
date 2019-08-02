@@ -577,6 +577,21 @@ void ConfigHelper::addConfigModifier(HttpModifierFunction function) {
   });
 }
 
+void ConfigHelper::setOutboundFramesLimits(uint32_t max_all_frames, uint32_t max_control_frames) {
+  auto filter = getFilterFromListener("envoy.http_connection_manager");
+  if (filter) {
+    envoy::config::filter::network::http_connection_manager::v2::HttpConnectionManager hcm_config;
+    loadHttpConnectionManager(hcm_config);
+    if (hcm_config.codec_type() ==
+        envoy::config::filter::network::http_connection_manager::v2::HttpConnectionManager::HTTP2) {
+      auto* options = hcm_config.mutable_http2_protocol_options();
+      options->mutable_max_outbound_frames()->set_value(max_all_frames);
+      options->mutable_max_outbound_control_frames()->set_value(max_control_frames);
+      storeHttpConnectionManager(hcm_config);
+    }
+  }
+}
+
 EdsHelper::EdsHelper() : eds_path_(TestEnvironment::writeStringToFileForTest("eds.pb_text", "")) {
   // cluster.cluster_0.update_success will be incremented on the initial
   // load when Envoy comes up.

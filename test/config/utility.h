@@ -139,6 +139,9 @@ public:
   // Modifiers will be applied just before ports are modified in finalize
   void addConfigModifier(HttpModifierFunction function);
 
+  // Set limits on pending outbound frames.
+  void setOutboundFramesLimits(uint32_t max_all_frames, uint32_t max_control_frames);
+
   // Return the bootstrap configuration for hand-off to Envoy.
   const envoy::config::bootstrap::v2::Bootstrap& bootstrap() { return bootstrap_; }
 

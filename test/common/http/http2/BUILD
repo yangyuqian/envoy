@@ -31,6 +31,7 @@ envoy_cc_test(
 envoy_cc_test_library(
     name = "codec_impl_test_util",
     hdrs = ["codec_impl_test_util.h"],
+    external_deps = ["abseil_optional"],
     deps = [
         "//source/common/http/http2:codec_lib",
     ],
@@ -52,6 +53,15 @@ envoy_cc_test(
         "//test/mocks/network:network_mocks",
         "//test/mocks/runtime:runtime_mocks",
         "//test/mocks/upstream:upstream_mocks",
+    ],
+)
+
+envoy_cc_test_library(
+    name = "http2_frame",
+    srcs = ["http2_frame.cc"],
+    hdrs = ["http2_frame.h"],
+    deps = [
+        "//source/common/common:macros",
     ],
 )
 

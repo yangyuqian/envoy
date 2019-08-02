@@ -180,10 +180,12 @@ void ConnectionManagerImpl::doEndStream(ActiveStream& stream) {
   // explicitly nulls out response_encoder to avoid the downstream being notified of the
   // Envoy-internal stream instance being ended.
   if (stream.response_encoder_ != nullptr &&
-      (!stream.state_.remote_complete_ || !stream.state_.local_complete_)) {
+      (!stream.state_.remote_complete_ || !stream.state_.codec_saw_local_complete_)) {
     // Indicate local is complete at this point so that if we reset during a continuation, we don't
     // raise further data or trailers.
+    ENVOY_STREAM_LOG(debug, "doEndStream() resetting stream", stream);
     stream.state_.local_complete_ = true;
+    stream.state_.codec_saw_local_complete_ = true;
     stream.response_encoder_->getStream().resetStream(StreamResetReason::LocalReset);
     reset_stream = true;
   }
@@ -254,6 +256,18 @@ StreamDecoder& ConnectionManagerImpl::newStream(StreamEncoder& response_encoder,
   return **streams_.begin();
 }
 
+void ConnectionManagerImpl::handleCodecException(const char* error) {
+  ENVOY_CONN_LOG(debug, "dispatch error: {}", read_callbacks_->connection(), error);
+
+  // In the protocol error case, we need to reset all streams now. The connection might stick around
+  // long enough for a pending stream to come back and try to encode.
+  resetAllStreams();
+
+  // HTTP/1.1 codec has already sent a 400 response if possible. HTTP/2 codec has already sent
+  // GOAWAY.
+  read_callbacks_->connection().close(Network::ConnectionCloseType::FlushWriteAndDelay);
+}
+
 Network::FilterStatus ConnectionManagerImpl::onData(Buffer::Instance& data, bool) {
   if (!codec_) {
     codec_ = config_.createCodec(read_callbacks_->connection(), data, *this);
@@ -272,18 +286,12 @@ Network::FilterStatus ConnectionManagerImpl::onData(Buffer::Instance& data, bool
 
     try {
       codec_->dispatch(data);
+    } catch (const FrameFloodException& e) {
+      handleCodecException(e.what());
+      return Network::FilterStatus::StopIteration;
     } catch (const CodecProtocolException& e) {
-      // HTTP/1.1 codec has already sent a 400 response if possible. HTTP/2 codec has already sent
-      // GOAWAY.
-      ENVOY_CONN_LOG(debug, "dispatch error: {}", read_callbacks_->connection(), e.what());
       stats_.named_.downstream_cx_protocol_error_.inc();
-
-      // In the protocol error case, we need to reset all streams now. Since we do a flush write and
-      // delayed close, the connection might stick around long enough for a pending stream to come
-      // back and try to encode.
-      resetAllStreams();
-
-      read_callbacks_->connection().close(Network::ConnectionCloseType::FlushWriteAndDelay);
+      handleCodecException(e.what());
       return Network::FilterStatus::StopIteration;
     }
 
@@ -311,8 +319,17 @@ Network::FilterStatus ConnectionManagerImpl::onData(Buffer::Instance& data, bool
 
 void ConnectionManagerImpl::resetAllStreams() {
   while (!streams_.empty()) {
-    // Mimic a downstream reset in this case.
-    streams_.front()->onResetStream(StreamResetReason::ConnectionTermination, absl::string_view());
+    // Mimic a downstream reset in this case. We must also remove callbacks here. Though we are
+    // about to close the connection and will disable further reads, it is possible that flushing
+    // data out can cause stream callbacks to fire (e.g., low watermark callbacks).
+    //
+    // TODO(mattklein123): I tried to actually reset through the codec here, but ran into issues
+    // with nghttp2 state and being unhappy about sending reset frames after the connection had
+    // been terminated via GOAWAY. It might be possible to do something better here inside the h2
+    // codec but there are no easy answers and this seems simpler.
+    auto& stream = *streams_.front();
+    stream.response_encoder_->getStream().removeCallbacks(stream);
+    stream.onResetStream(StreamResetReason::ConnectionTermination, absl::string_view());
   }
 }
 
@@ -1493,6 +1510,8 @@ void ConnectionManagerImpl::ActiveStream::encodeTrailers(ActiveStreamEncoderFilt
 
 void ConnectionManagerImpl::ActiveStream::maybeEndEncode(bool end_stream) {
   if (end_stream) {
+    ASSERT(!state_.codec_saw_local_complete_);
+    state_.codec_saw_local_complete_ = true;
     stream_info_.onLastDownstreamTxByteSent();
     request_response_timespan_->complete();
     connection_manager_.doEndStream(*this);
@@ -1518,6 +1537,7 @@ void ConnectionManagerImpl::ActiveStream::onResetStream(StreamResetReason, absl:
   //       2) The codec TX a codec level reset
   //       3) The codec RX a reset
   //       If we need to differentiate we need to do it inside the codec. Can start with this.
+  ENVOY_STREAM_LOG(debug, "stream reset", *this);
   connection_manager_.stats_.named_.downstream_rq_rx_reset_.inc();
   connection_manager_.doDeferredStreamDestroy(*this);
 }

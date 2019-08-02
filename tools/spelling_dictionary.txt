@@ -40,6 +40,7 @@ CTX
 CTXs
 CVC
 CX
+CloseAterFlush
 DCHECK
 DER
 DESC
@@ -283,6 +284,7 @@ accessors
 acls
 addr
 agg
+alignas
 alloc
 alloca
 allocator

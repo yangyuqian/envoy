@@ -828,4 +828,10 @@ TEST(DateFormatter, FromTimeSameWildcard) {
             DateFormatter("%Y-%m-%dT%H:%M:%S.000Z%1f%2f").fromTime(time1));
 }
 
+TEST(InlineStorageTest, InlineString) {
+  InlineStringPtr hello = InlineString::create("Hello, world!");
+  EXPECT_EQ("Hello, world!", hello->toStringView());
+  EXPECT_EQ("Hello, world!", hello->toString());
+}
+
 } // namespace Envoy
