@@ -9,7 +9,7 @@ def _genrule_repository(ctx):
     for ii, patch in enumerate(ctx.attr.patches):
         patch_input = "patch-input-%d.patch" % (ii,)
         ctx.symlink(patch, patch_input)
-        patch_result = ctx.execute(["patch", "-p0", "--input", patch_input])
+        patch_result = ctx.execute(["patch", "-p1", "--input", patch_input])
         if patch_result.return_code != 0:
             fail("Failed to apply patch %r: %s" % (patch, patch_result.stderr))
 
@@ -105,9 +105,11 @@ def _genrule_environment(ctx):
     # running.
     #
     # https://stackoverflow.com/questions/37603238/fsanitize-not-using-gold-linker-in-gcc-6-1
-    force_ld_gold = []
-    if "gcc" in c_compiler or "g++" in c_compiler:
-        force_ld_gold = ["-fuse-ld=gold"]
+    force_ld = []
+    if "clang" in c_compiler:
+        force_ld = ["-fuse-ld=lld"]
+    elif "gcc" in c_compiler or "g++" in c_compiler:
+        force_ld = ["-fuse-ld=gold"]
 
     cc_flags = []
     ld_flags = []
@@ -117,11 +119,11 @@ def _genrule_environment(ctx):
     if ctx.var.get("ENVOY_CONFIG_ASAN"):
         cc_flags += asan_flags
         ld_flags += asan_flags
-        ld_flags += force_ld_gold
+        ld_flags += force_ld
     if ctx.var.get("ENVOY_CONFIG_TSAN"):
         cc_flags += tsan_flags
         ld_flags += tsan_flags
-        ld_flags += force_ld_gold
+        ld_flags += force_ld
 
     lines.append("export CFLAGS=%r" % (" ".join(cc_flags),))
     lines.append("export LDFLAGS=%r" % (" ".join(ld_flags),))

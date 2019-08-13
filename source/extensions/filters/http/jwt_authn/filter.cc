@@ -4,6 +4,8 @@
 
 #include "extensions/filters/http/well_known_names.h"
 
+#include "jwt_verify_lib/status.h"
+
 using ::google::jwt_verify::Status;
 
 namespace Envoy {
@@ -11,7 +13,14 @@ namespace Extensions {
 namespace HttpFilters {
 namespace JwtAuthn {
 
-Filter::Filter(FilterConfigSharedPtr config) : stats_(config->stats()), config_(config) {}
+struct RcDetailsValues {
+  // The jwt_authn filter rejected the request
+  const std::string JwtAuthnAccessDenied = "jwt_authn_access_denied";
+};
+using RcDetails = ConstSingleton<RcDetailsValues>;
+
+Filter::Filter(FilterConfigSharedPtr config)
+    : stats_(config->stats()), config_(std::move(config)) {}
 
 void Filter::onDestroy() {
   ENVOY_LOG(debug, "Called Filter : {}", __func__);
@@ -26,7 +35,8 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::HeaderMap& headers, bool) 
   state_ = Calling;
   stopped_ = false;
   // Verify the JWT token, onComplete() will be called when completed.
-  const auto* verifier = config_->findVerifier(headers);
+  const auto* verifier =
+      config_->findVerifier(headers, decoder_callbacks_->streamInfo().filterState());
   if (!verifier) {
     onComplete(Status::Ok);
   } else {
@@ -47,7 +57,8 @@ void Filter::setPayload(const ProtobufWkt::Struct& payload) {
 }
 
 void Filter::onComplete(const Status& status) {
-  ENVOY_LOG(debug, "Called Filter : check complete {}", int(status));
+  ENVOY_LOG(debug, "Called Filter : check complete {}",
+            ::google::jwt_verify::getStatusString(status));
   // This stream has been reset, abort the callback.
   if (state_ == Responded) {
     return;
@@ -56,10 +67,11 @@ void Filter::onComplete(const Status& status) {
     stats_.denied_.inc();
     state_ = Responded;
     // verification failed
-    Http::Code code = Http::Code::Unauthorized;
+    Http::Code code =
+        status == Status::JwtAudienceNotAllowed ? Http::Code::Forbidden : Http::Code::Unauthorized;
     // return failure reason as message body
     decoder_callbacks_->sendLocalReply(code, ::google::jwt_verify::getStatusString(status), nullptr,
-                                       absl::nullopt);
+                                       absl::nullopt, RcDetails::get().JwtAuthnAccessDenied);
     return;
   }
   stats_.allowed_.inc();

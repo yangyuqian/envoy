@@ -5,8 +5,9 @@
 #include "common/protobuf/utility.h"
 
 #include "test/test_common/registry.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Config {
@@ -47,7 +48,7 @@ TEST(MetadataTest, MetadataValuePath) {
             ProtobufWkt::Value::KindCase::KIND_NOT_SET);
 }
 
-class TypedMetadataTest : public TestBase {
+class TypedMetadataTest : public testing::Test {
 public:
   TypedMetadataTest() : registered_factory_(foo_factory_) {}
 
@@ -60,9 +61,10 @@ public:
 
   class FooFactory : public TypedMetadataFactory::TypedMetadataFactory {
   public:
-    const std::string name() const { return "foo"; }
+    const std::string name() const override { return "foo"; }
     // Throws EnvoyException (conversion failure) if d is empty.
-    std::unique_ptr<const TypedMetadata::Object> parse(const ProtobufWkt::Struct& d) const {
+    std::unique_ptr<const TypedMetadata::Object>
+    parse(const ProtobufWkt::Struct& d) const override {
       if (d.fields().find("name") != d.fields().end()) {
         return std::make_unique<Foo>(d.fields().at("name").string_value());
       }

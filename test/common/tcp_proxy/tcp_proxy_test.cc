@@ -20,14 +20,16 @@
 #include "test/mocks/network/mocks.h"
 #include "test/mocks/runtime/mocks.h"
 #include "test/mocks/server/mocks.h"
+#include "test/mocks/ssl/mocks.h"
 #include "test/mocks/stream_info/mocks.h"
 #include "test/mocks/tcp/mocks.h"
 #include "test/mocks/upstream/host.h"
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
+#include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::Invoke;
@@ -41,6 +43,7 @@ using testing::SaveArg;
 
 namespace Envoy {
 namespace TcpProxy {
+namespace {
 
 using ::Envoy::Network::UpstreamServerName;
 
@@ -51,6 +54,7 @@ Config constructConfigFromJson(const Json::Object& json,
   Envoy::Config::FilterJson::translateTcpProxy(json, tcp_proxy);
   return Config(tcp_proxy, context);
 }
+
 } // namespace
 
 TEST(ConfigTest, NoRouteConfig) {
@@ -328,7 +332,7 @@ TEST(ConfigTest, AccessLogConfig) {
     file_access_log.set_path("some_path");
     file_access_log.set_format("the format specifier");
     ProtobufWkt::Struct* custom_config = log->mutable_config();
-    MessageUtil::jsonConvert(file_access_log, *custom_config);
+    TestUtility::jsonConvert(file_access_log, *custom_config);
   }
 
   log = config.mutable_access_log()->Add();
@@ -337,7 +341,7 @@ TEST(ConfigTest, AccessLogConfig) {
     envoy::config::accesslog::v2::FileAccessLog file_access_log;
     file_access_log.set_path("another path");
     ProtobufWkt::Struct* custom_config = log->mutable_config();
-    MessageUtil::jsonConvert(file_access_log, *custom_config);
+    TestUtility::jsonConvert(file_access_log, *custom_config);
   }
 
   NiceMock<Server::Configuration::MockFactoryContext> factory_context_;
@@ -346,14 +350,14 @@ TEST(ConfigTest, AccessLogConfig) {
   EXPECT_EQ(2, config_obj.accessLogs().size());
 }
 
-class TcpProxyTest : public TestBase {
+class TcpProxyTest : public testing::Test {
 public:
   TcpProxyTest() {
     ON_CALL(*factory_context_.access_log_manager_.file_, write(_))
         .WillByDefault(SaveArg<0>(&access_log_data_));
   }
 
-  ~TcpProxyTest() {
+  ~TcpProxyTest() override {
     if (filter_ != nullptr) {
       filter_callbacks_.connection_.raiseEvent(Network::ConnectionEvent::RemoteClose);
     }
@@ -382,7 +386,7 @@ public:
     envoy::config::accesslog::v2::FileAccessLog file_access_log;
     file_access_log.set_path("unused");
     file_access_log.set_format(access_log_format);
-    MessageUtil::jsonConvert(file_access_log, *access_log->mutable_config());
+    TestUtility::jsonConvert(file_access_log, *access_log->mutable_config());
 
     return config;
   }
@@ -472,9 +476,10 @@ public:
 
   Event::TestTimeSystem& timeSystem() { return factory_context_.timeSystem(); }
 
-  ConfigSharedPtr config_;
-  NiceMock<Network::MockReadFilterCallbacks> filter_callbacks_;
   NiceMock<Server::Configuration::MockFactoryContext> factory_context_;
+  ConfigSharedPtr config_;
+  std::unique_ptr<Filter> filter_;
+  NiceMock<Network::MockReadFilterCallbacks> filter_callbacks_;
   std::vector<std::shared_ptr<NiceMock<Upstream::MockHost>>> upstream_hosts_{};
   std::vector<std::unique_ptr<NiceMock<Network::MockClientConnection>>> upstream_connections_{};
   std::vector<std::unique_ptr<NiceMock<Tcp::ConnectionPool::MockConnectionData>>>
@@ -483,7 +488,6 @@ public:
   std::vector<std::unique_ptr<NiceMock<Tcp::ConnectionPool::MockCancellable>>> conn_pool_handles_;
   NiceMock<Tcp::ConnectionPool::MockInstance> conn_pool_;
   Tcp::ConnectionPool::UpstreamCallbacks* upstream_callbacks_;
-  std::unique_ptr<Filter> filter_;
   StringViewSaver access_log_data_;
   Network::Address::InstanceConstSharedPtr upstream_local_address_;
   Network::Address::InstanceConstSharedPtr upstream_remote_address_;
@@ -613,11 +617,11 @@ TEST_F(TcpProxyTest, ConnectAttemptsLimit) {
   setup(3, config);
 
   EXPECT_CALL(upstream_hosts_.at(0)->outlier_detector_,
-              putResult(Upstream::Outlier::Result::TIMEOUT));
+              putResult(Upstream::Outlier::Result::LOCAL_ORIGIN_TIMEOUT, _));
   EXPECT_CALL(upstream_hosts_.at(1)->outlier_detector_,
-              putResult(Upstream::Outlier::Result::CONNECT_FAILED));
+              putResult(Upstream::Outlier::Result::LOCAL_ORIGIN_CONNECT_FAILED, _));
   EXPECT_CALL(upstream_hosts_.at(2)->outlier_detector_,
-              putResult(Upstream::Outlier::Result::CONNECT_FAILED));
+              putResult(Upstream::Outlier::Result::LOCAL_ORIGIN_CONNECT_FAILED, _));
 
   EXPECT_CALL(filter_callbacks_.connection_, close(Network::ConnectionCloseType::NoFlush));
 
@@ -639,16 +643,16 @@ TEST_F(TcpProxyTest, OutlierDetection) {
   setup(3, config);
 
   EXPECT_CALL(upstream_hosts_.at(0)->outlier_detector_,
-              putResult(Upstream::Outlier::Result::TIMEOUT));
+              putResult(Upstream::Outlier::Result::LOCAL_ORIGIN_TIMEOUT, _));
   raiseEventUpstreamConnectFailed(0, Tcp::ConnectionPool::PoolFailureReason::Timeout);
 
   EXPECT_CALL(upstream_hosts_.at(1)->outlier_detector_,
-              putResult(Upstream::Outlier::Result::CONNECT_FAILED));
+              putResult(Upstream::Outlier::Result::LOCAL_ORIGIN_CONNECT_FAILED, _));
   raiseEventUpstreamConnectFailed(1,
                                   Tcp::ConnectionPool::PoolFailureReason::RemoteConnectionFailure);
 
   EXPECT_CALL(upstream_hosts_.at(2)->outlier_detector_,
-              putResult(Upstream::Outlier::Result::SUCCESS));
+              putResult(Upstream::Outlier::Result::LOCAL_ORIGIN_CONNECT_SUCCESS_FINAL, _));
   raiseEventUpstreamConnected(2);
 }
 
@@ -796,7 +800,7 @@ TEST_F(TcpProxyTest, UpstreamConnectFailure) {
 TEST_F(TcpProxyTest, UpstreamConnectionLimit) {
   configure(accessLogConfig("%RESPONSE_FLAGS%"));
   factory_context_.cluster_manager_.thread_local_cluster_.cluster_.info_->resetResourceManager(
-      0, 0, 0, 0);
+      0, 0, 0, 0, 0);
 
   // setup sets up expectation for tcpConnForCluster but this test is expected to NOT call that
   filter_ = std::make_unique<Filter>(config_, factory_context_.cluster_manager_, timeSystem());
@@ -933,6 +937,43 @@ TEST_F(TcpProxyTest, AccessLogUpstreamLocalAddress) {
   filter_callbacks_.connection_.raiseEvent(Network::ConnectionEvent::RemoteClose);
   filter_.reset();
   EXPECT_EQ(access_log_data_, "2.2.2.2:50000");
+}
+
+// Test that access log fields %DOWNSTREAM_PEER_URI_SAN% is correctly logged.
+TEST_F(TcpProxyTest, AccessLogPeerUriSan) {
+  filter_callbacks_.connection_.local_address_ =
+      Network::Utility::resolveUrl("tcp://1.1.1.2:20000");
+  filter_callbacks_.connection_.remote_address_ =
+      Network::Utility::resolveUrl("tcp://1.1.1.1:40000");
+
+  const std::vector<std::string> uriSan{"someSan"};
+  Ssl::MockConnectionInfo mockConnectionInfo;
+  EXPECT_CALL(mockConnectionInfo, uriSanPeerCertificate()).WillOnce(Return(uriSan));
+  EXPECT_CALL(filter_callbacks_.connection_, ssl()).WillRepeatedly(Return(&mockConnectionInfo));
+
+  setup(1, accessLogConfig("%DOWNSTREAM_PEER_URI_SAN%"));
+  filter_callbacks_.connection_.raiseEvent(Network::ConnectionEvent::RemoteClose);
+  filter_.reset();
+  EXPECT_EQ(access_log_data_, "someSan");
+}
+
+// Test that access log fields %DOWNSTREAM_TLS_SESSION_ID% is correctly logged.
+TEST_F(TcpProxyTest, AccessLogTlsSessionId) {
+  filter_callbacks_.connection_.local_address_ =
+      Network::Utility::resolveUrl("tcp://1.1.1.2:20000");
+  filter_callbacks_.connection_.remote_address_ =
+      Network::Utility::resolveUrl("tcp://1.1.1.1:40000");
+
+  const std::string tlsSessionId{
+      "D62A523A65695219D46FE1FFE285A4C371425ACE421B110B5B8D11D3EB4D5F0B"};
+  Ssl::MockConnectionInfo mockConnectionInfo;
+  EXPECT_CALL(mockConnectionInfo, sessionId()).WillOnce(Return(tlsSessionId));
+  EXPECT_CALL(filter_callbacks_.connection_, ssl()).WillRepeatedly(Return(&mockConnectionInfo));
+
+  setup(1, accessLogConfig("%DOWNSTREAM_TLS_SESSION_ID%"));
+  filter_callbacks_.connection_.raiseEvent(Network::ConnectionEvent::RemoteClose);
+  filter_.reset();
+  EXPECT_EQ(access_log_data_, "D62A523A65695219D46FE1FFE285A4C371425ACE421B110B5B8D11D3EB4D5F0B");
 }
 
 // Test that access log fields %DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT% and
@@ -1076,7 +1117,7 @@ TEST_F(TcpProxyTest, UpstreamFlushReceiveUpstreamData) {
   upstream_callbacks_->onUpstreamData(buffer, false);
 }
 
-class TcpProxyRoutingTest : public TestBase {
+class TcpProxyRoutingTest : public testing::Test {
 public:
   TcpProxyRoutingTest() {
     std::string json = R"EOF(
@@ -1106,10 +1147,10 @@ public:
 
   Event::TestTimeSystem& timeSystem() { return factory_context_.timeSystem(); }
 
+  NiceMock<Server::Configuration::MockFactoryContext> factory_context_;
   ConfigSharedPtr config_;
   NiceMock<Network::MockConnection> connection_;
   NiceMock<Network::MockReadFilterCallbacks> filter_callbacks_;
-  NiceMock<Server::Configuration::MockFactoryContext> factory_context_;
   std::unique_ptr<Filter> filter_;
 };
 
@@ -1203,5 +1244,6 @@ TEST_F(TcpProxyRoutingTest, UpstreamServerName) {
   filter_->onNewConnection();
 }
 
+} // namespace
 } // namespace TcpProxy
 } // namespace Envoy

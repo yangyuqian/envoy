@@ -3,11 +3,13 @@
 #include <memory>
 #include <string>
 
+#include "envoy/config/filter/accesslog/v2/accesslog.pb.validate.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "envoy/upstream/upstream.h"
 
 #include "common/access_log/access_log_impl.h"
 #include "common/config/filter_json.h"
+#include "common/protobuf/message_validator_impl.h"
 #include "common/runtime/runtime_impl.h"
 #include "common/runtime/uuid_util.h"
 
@@ -20,10 +22,10 @@
 #include "test/mocks/server/mocks.h"
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -44,13 +46,13 @@ parseAccessLogFromJson(const std::string& json_string) {
 
 envoy::config::filter::accesslog::v2::AccessLog parseAccessLogFromV2Yaml(const std::string& yaml) {
   envoy::config::filter::accesslog::v2::AccessLog access_log;
-  MessageUtil::loadFromYaml(yaml, access_log);
+  TestUtility::loadFromYaml(yaml, access_log);
   return access_log;
 }
 
-class AccessLogImplTest : public TestBase {
+class AccessLogImplTest : public testing::Test {
 public:
-  AccessLogImplTest() : file_(new Filesystem::MockFile()) {
+  AccessLogImplTest() : file_(new MockAccessLogFile()) {
     ON_CALL(context_, runtime()).WillByDefault(ReturnRef(runtime_));
     ON_CALL(context_, accessLogManager()).WillByDefault(ReturnRef(log_manager_));
     ON_CALL(log_manager_, createAccessLog(_)).WillByDefault(Return(file_));
@@ -61,7 +63,7 @@ public:
   Http::TestHeaderMapImpl response_headers_;
   Http::TestHeaderMapImpl response_trailers_;
   TestStreamInfo stream_info_;
-  std::shared_ptr<Filesystem::MockFile> file_;
+  std::shared_ptr<MockAccessLogFile> file_;
   StringViewSaver output_;
 
   NiceMock<Runtime::MockLoader> runtime_;
@@ -102,7 +104,7 @@ TEST_F(AccessLogImplTest, DownstreamDisconnect) {
 
   EXPECT_CALL(*file_, write(_));
 
-  std::shared_ptr<Upstream::MockClusterInfo> cluster{new Upstream::MockClusterInfo()};
+  auto cluster = std::make_shared<NiceMock<Upstream::MockClusterInfo>>();
   stream_info_.upstream_host_ = Upstream::makeTestHostDescription(cluster, "tcp://10.0.0.5:1234");
   stream_info_.response_flags_ = StreamInfo::ResponseFlag::DownstreamConnectionTermination;
 
@@ -110,6 +112,31 @@ TEST_F(AccessLogImplTest, DownstreamDisconnect) {
   EXPECT_EQ("[1999-01-01T00:00:00.000Z] \"GET / HTTP/1.1\" 0 DC 1 2 3 - \"-\" \"-\" \"-\" \"-\" "
             "\"10.0.0.5:1234\"\n",
             output_);
+}
+
+TEST_F(AccessLogImplTest, RouteName) {
+  const std::string json = R"EOF(
+  {
+    "path": "/dev/null",
+    "format": "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH):256% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %ROUTE_NAME% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\"  \"%REQ(:AUTHORITY)%\"\n"
+  }
+  )EOF";
+
+  InstanceSharedPtr log = AccessLogFactory::fromProto(parseAccessLogFromJson(json), context_);
+
+  EXPECT_CALL(*file_, write(_));
+  stream_info_.route_name_ = "route-test-name";
+  stream_info_.response_flags_ = StreamInfo::ResponseFlag::UpstreamConnectionFailure;
+  request_headers_.addCopy(Http::Headers::get().UserAgent, "user-agent-set");
+  request_headers_.addCopy(Http::Headers::get().RequestId, "id");
+  request_headers_.addCopy(Http::Headers::get().Host, "host");
+  request_headers_.addCopy(Http::Headers::get().ForwardedFor, "x.x.x.x");
+
+  log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+  EXPECT_EQ(
+      "[1999-01-01T00:00:00.000Z] \"GET / HTTP/1.1\" 0 UF route-test-name 1 2 3 - \"x.x.x.x\" "
+      "\"user-agent-set\" \"id\"  \"host\"\n",
+      output_);
 }
 
 TEST_F(AccessLogImplTest, EnvoyUpstreamServiceTime) {
@@ -147,7 +174,7 @@ TEST_F(AccessLogImplTest, NoFilter) {
 }
 
 TEST_F(AccessLogImplTest, UpstreamHost) {
-  std::shared_ptr<Upstream::MockClusterInfo> cluster{new Upstream::MockClusterInfo()};
+  auto cluster = std::make_shared<NiceMock<Upstream::MockClusterInfo>>();
   stream_info_.upstream_host_ = Upstream::makeTestHostDescription(cluster, "tcp://10.0.0.5:1234");
 
   const std::string json = R"EOF(
@@ -534,63 +561,69 @@ TEST_F(AccessLogImplTest, multipleOperators) {
 }
 
 TEST(AccessLogFilterTest, DurationWithRuntimeKey) {
-  std::string filter_json = R"EOF(
-    {
-      "filter": {"type": "duration", "op": ">=", "value": 1000000, "runtime_key": "key"}
-    }
+  std::string filter_yaml = R"EOF(
+duration_filter:
+  comparison:
+    op: GE
+    value:
+      default_value: 1000000
+      runtime_key: key
     )EOF";
 
-  Json::ObjectSharedPtr loader = Json::Factory::loadFromString(filter_json);
   NiceMock<Runtime::MockLoader> runtime;
 
-  Json::ObjectSharedPtr filter_object = loader->getObject("filter");
   envoy::config::filter::accesslog::v2::AccessLogFilter config;
-  Config::FilterJson::translateAccessLogFilter(*filter_object, config);
+  TestUtility::loadFromYaml(filter_yaml, config);
   DurationFilter filter(config.duration_filter(), runtime);
   Http::TestHeaderMapImpl request_headers{{":method", "GET"}, {":path", "/"}};
+  Http::TestHeaderMapImpl response_headers;
+  Http::TestHeaderMapImpl response_trailers;
   TestStreamInfo stream_info;
 
   stream_info.end_time_ = stream_info.startTimeMonotonic() + std::chrono::microseconds(100000);
   EXPECT_CALL(runtime.snapshot_, getInteger("key", 1000000)).WillOnce(Return(1));
-  EXPECT_TRUE(filter.evaluate(stream_info, request_headers));
+  EXPECT_TRUE(filter.evaluate(stream_info, request_headers, response_headers, response_trailers));
 
   EXPECT_CALL(runtime.snapshot_, getInteger("key", 1000000)).WillOnce(Return(1000));
-  EXPECT_FALSE(filter.evaluate(stream_info, request_headers));
+  EXPECT_FALSE(filter.evaluate(stream_info, request_headers, response_headers, response_trailers));
 
   stream_info.end_time_ =
       stream_info.startTimeMonotonic() + std::chrono::microseconds(100000001000);
   EXPECT_CALL(runtime.snapshot_, getInteger("key", 1000000)).WillOnce(Return(100000000));
-  EXPECT_TRUE(filter.evaluate(stream_info, request_headers));
+  EXPECT_TRUE(filter.evaluate(stream_info, request_headers, response_headers, response_trailers));
 
   stream_info.end_time_ = stream_info.startTimeMonotonic() + std::chrono::microseconds(10000);
   EXPECT_CALL(runtime.snapshot_, getInteger("key", 1000000)).WillOnce(Return(100000000));
-  EXPECT_FALSE(filter.evaluate(stream_info, request_headers));
+  EXPECT_FALSE(filter.evaluate(stream_info, request_headers, response_headers, response_trailers));
 }
 
 TEST(AccessLogFilterTest, StatusCodeWithRuntimeKey) {
-  std::string filter_json = R"EOF(
-    {
-      "filter": {"type": "status_code", "op": ">=", "value": 300, "runtime_key": "key"}
-    }
+  std::string filter_yaml = R"EOF(
+status_code_filter:
+  comparison:
+    op: GE
+    value:
+      default_value: 300
+      runtime_key: key
     )EOF";
 
-  Json::ObjectSharedPtr loader = Json::Factory::loadFromString(filter_json);
   NiceMock<Runtime::MockLoader> runtime;
 
-  Json::ObjectSharedPtr filter_object = loader->getObject("filter");
   envoy::config::filter::accesslog::v2::AccessLogFilter config;
-  Config::FilterJson::translateAccessLogFilter(*filter_object, config);
+  TestUtility::loadFromYaml(filter_yaml, config);
   StatusCodeFilter filter(config.status_code_filter(), runtime);
 
   Http::TestHeaderMapImpl request_headers{{":method", "GET"}, {":path", "/"}};
+  Http::TestHeaderMapImpl response_headers;
+  Http::TestHeaderMapImpl response_trailers;
   TestStreamInfo info;
 
   info.response_code_ = 400;
   EXPECT_CALL(runtime.snapshot_, getInteger("key", 300)).WillOnce(Return(350));
-  EXPECT_TRUE(filter.evaluate(info, request_headers));
+  EXPECT_TRUE(filter.evaluate(info, request_headers, response_headers, response_trailers));
 
   EXPECT_CALL(runtime.snapshot_, getInteger("key", 300)).WillOnce(Return(500));
-  EXPECT_FALSE(filter.evaluate(info, request_headers));
+  EXPECT_FALSE(filter.evaluate(info, request_headers, response_headers, response_trailers));
 }
 
 TEST_F(AccessLogImplTest, StatusCodeLessThan) {
@@ -837,11 +870,13 @@ filter:
       - RLSE
       - DC
       - URX
+      - SI
+      - IH
 config:
   path: /dev/null
   )EOF";
 
-  static_assert(StreamInfo::ResponseFlag::LastFlag == 0x8000,
+  static_assert(StreamInfo::ResponseFlag::LastFlag == 0x20000,
                 "A flag has been added. Fix this code.");
 
   std::vector<StreamInfo::ResponseFlag> all_response_flags = {
@@ -861,6 +896,8 @@ config:
       StreamInfo::ResponseFlag::RateLimitServiceError,
       StreamInfo::ResponseFlag::DownstreamConnectionTermination,
       StreamInfo::ResponseFlag::UpstreamRetryLimitExceeded,
+      StreamInfo::ResponseFlag::StreamIdleTimeout,
+      StreamInfo::ResponseFlag::InvalidEnvoyRequestHeaders,
   };
 
   InstanceSharedPtr log = AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
@@ -891,7 +928,7 @@ config:
       "[\"embedded message failed validation\"] | caused by "
       "ResponseFlagFilterValidationError.Flags[i]: [\"value must be in list \" [\"LH\" \"UH\" "
       "\"UT\" \"LR\" \"UR\" \"UF\" \"UC\" \"UO\" \"NR\" \"DI\" \"FI\" \"RL\" \"UAEX\" \"RLSE\" "
-      "\"DC\" \"URX\"]]): "
+      "\"DC\" \"URX\" \"SI\" \"IH\"]]): "
       "response_flag_filter {\n  flags: \"UnsupportedFlag\"\n}\n");
 }
 
@@ -914,8 +951,336 @@ typed_config:
       "[\"embedded message failed validation\"] | caused by "
       "ResponseFlagFilterValidationError.Flags[i]: [\"value must be in list \" [\"LH\" \"UH\" "
       "\"UT\" \"LR\" \"UR\" \"UF\" \"UC\" \"UO\" \"NR\" \"DI\" \"FI\" \"RL\" \"UAEX\" \"RLSE\" "
-      "\"DC\" \"URX\"]]): "
+      "\"DC\" \"URX\" \"SI\" \"IH\"]]): "
       "response_flag_filter {\n  flags: \"UnsupportedFlag\"\n}\n");
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterValues) {
+  const std::string yaml_template = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    statuses:
+      - {}
+config:
+  path: /dev/null
+)EOF";
+
+  const auto desc = envoy::config::filter::accesslog::v2::GrpcStatusFilter_Status_descriptor();
+  const int grpcStatuses = static_cast<int>(Grpc::Status::GrpcStatus::MaximumValid) + 1;
+  if (desc->value_count() != grpcStatuses) {
+    FAIL() << "Mismatch in number of gRPC statuses, GrpcStatus has " << grpcStatuses
+           << ", GrpcStatusFilter_Status has " << desc->value_count() << ".";
+  }
+
+  for (int i = 0; i < desc->value_count(); i++) {
+    InstanceSharedPtr log = AccessLogFactory::fromProto(
+        parseAccessLogFromV2Yaml(fmt::format(yaml_template, desc->value(i)->name())), context_);
+
+    EXPECT_CALL(*file_, write(_));
+
+    response_trailers_.addCopy(Http::Headers::get().GrpcStatus, std::to_string(i));
+    log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+    response_trailers_.remove(Http::Headers::get().GrpcStatus);
+  }
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterUnsupportedValue) {
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    statuses:
+      - NOT_A_VALID_CODE
+config:
+  path: /dev/null
+  )EOF";
+
+  EXPECT_THROW_WITH_REGEX(AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_),
+                          EnvoyException, ".*\"NOT_A_VALID_CODE\" for type TYPE_ENUM.*");
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterBlock) {
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    statuses:
+      - OK
+config:
+  path: /dev/null
+  )EOF";
+
+  const InstanceSharedPtr log =
+      AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+
+  response_trailers_.addCopy(Http::Headers::get().GrpcStatus, "1");
+
+  EXPECT_CALL(*file_, write(_)).Times(0);
+  log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterHttpCodes) {
+  const std::string yaml_template = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    statuses:
+      - {}
+config:
+  path: /dev/null
+)EOF";
+
+  // This mapping includes UNKNOWN <-> 200 because we expect that gRPC should provide an explicit
+  // status code for successes. In general, the only status codes that receive an HTTP mapping are
+  // those enumerated below with a non-UNKNOWN mapping. See: //source/common/grpc/status.cc and
+  // https://github.com/grpc/grpc/blob/master/doc/http-grpc-status-mapping.md.
+  const std::vector<std::pair<std::string, uint64_t>> statusMapping = {
+      {"UNKNOWN", 200},           {"INTERNAL", 400},    {"UNAUTHENTICATED", 401},
+      {"PERMISSION_DENIED", 403}, {"UNAVAILABLE", 429}, {"UNIMPLEMENTED", 404},
+      {"UNAVAILABLE", 502},       {"UNAVAILABLE", 503}, {"UNAVAILABLE", 504}};
+
+  for (const auto& pair : statusMapping) {
+    stream_info_.response_code_ = pair.second;
+
+    const InstanceSharedPtr log = AccessLogFactory::fromProto(
+        parseAccessLogFromV2Yaml(fmt::format(yaml_template, pair.first)), context_);
+
+    EXPECT_CALL(*file_, write(_));
+    log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+  }
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterNoCode) {
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    statuses:
+      - UNKNOWN
+config:
+  path: /dev/null
+  )EOF";
+
+  const InstanceSharedPtr log =
+      AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+
+  EXPECT_CALL(*file_, write(_));
+  log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterExclude) {
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    exclude: true
+    statuses:
+      - OK
+config:
+  path: /dev/null
+  )EOF";
+
+  const InstanceSharedPtr log =
+      AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+
+  for (int i = 0; i <= static_cast<int>(Grpc::Status::GrpcStatus::MaximumValid); i++) {
+    EXPECT_CALL(*file_, write(_)).Times(i == 0 ? 0 : 1);
+
+    response_trailers_.addCopy(Http::Headers::get().GrpcStatus, std::to_string(i));
+    log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+    response_trailers_.remove(Http::Headers::get().GrpcStatus);
+  }
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterExcludeFalse) {
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    exclude: false
+    statuses:
+      - OK
+config:
+  path: /dev/null
+  )EOF";
+
+  const InstanceSharedPtr log =
+      AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+
+  response_trailers_.addCopy(Http::Headers::get().GrpcStatus, "0");
+
+  EXPECT_CALL(*file_, write(_));
+  log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+}
+
+TEST_F(AccessLogImplTest, GrpcStatusFilterHeader) {
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  grpc_status_filter:
+    statuses:
+      - OK
+config:
+  path: /dev/null
+  )EOF";
+
+  const InstanceSharedPtr log =
+      AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+
+  EXPECT_CALL(*file_, write(_));
+
+  response_headers_.addCopy(Http::Headers::get().GrpcStatus, "0");
+  log->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+}
+
+class TestHeaderFilterFactory : public ExtensionFilterFactory {
+public:
+  ~TestHeaderFilterFactory() override = default;
+
+  FilterPtr createFilter(const envoy::config::filter::accesslog::v2::ExtensionFilter& config,
+                         Runtime::Loader&, Runtime::RandomGenerator&) override {
+    auto factory_config = Config::Utility::translateToFactoryConfig(
+        config, Envoy::ProtobufMessage::getNullValidationVisitor(), *this);
+    const auto& header_config =
+        MessageUtil::downcastAndValidate<const envoy::config::filter::accesslog::v2::HeaderFilter&>(
+            *factory_config);
+    return std::make_unique<HeaderFilter>(header_config);
+  }
+
+  ProtobufTypes::MessagePtr createEmptyConfigProto() override {
+    return std::make_unique<envoy::config::filter::accesslog::v2::HeaderFilter>();
+  }
+
+  std::string name() const override { return "test_header_filter"; }
+};
+
+TEST_F(AccessLogImplTest, TestHeaderFilterPresence) {
+  Registry::RegisterFactory<TestHeaderFilterFactory, ExtensionFilterFactory> registered;
+
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  extension_filter:
+    name: test_header_filter
+    config:
+      header:
+        name: test-header
+config:
+  path: /dev/null
+  )EOF";
+
+  InstanceSharedPtr logger = AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+
+  EXPECT_CALL(*file_, write(_)).Times(0);
+  logger->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+
+  request_headers_.addCopy("test-header", "foo/bar");
+  EXPECT_CALL(*file_, write(_));
+  logger->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+}
+
+/**
+ * Sample extension filter which allows every sample_rate-th request.
+ */
+class SampleExtensionFilter : public Filter {
+public:
+  SampleExtensionFilter(uint32_t sample_rate) : sample_rate_(sample_rate) {}
+
+  // AccessLog::Filter
+  bool evaluate(const StreamInfo::StreamInfo&, const Http::HeaderMap&, const Http::HeaderMap&,
+                const Http::HeaderMap&) override {
+    if (current_++ == 0) {
+      return true;
+    }
+    if (current_ >= sample_rate_) {
+      current_ = 0;
+    }
+    return false;
+  }
+
+private:
+  uint32_t current_ = 0;
+  uint32_t sample_rate_;
+};
+
+/**
+ * Sample extension filter factory which creates SampleExtensionFilter.
+ */
+class SampleExtensionFilterFactory : public ExtensionFilterFactory {
+public:
+  ~SampleExtensionFilterFactory() override = default;
+
+  FilterPtr createFilter(const envoy::config::filter::accesslog::v2::ExtensionFilter& config,
+                         Runtime::Loader&, Runtime::RandomGenerator&) override {
+    auto factory_config = Config::Utility::translateToFactoryConfig(
+        config, Envoy::ProtobufMessage::getNullValidationVisitor(), *this);
+    const Json::ObjectSharedPtr filter_config =
+        MessageUtil::getJsonObjectFromMessage(*factory_config);
+    return std::make_unique<SampleExtensionFilter>(filter_config->getInteger("rate"));
+  }
+
+  ProtobufTypes::MessagePtr createEmptyConfigProto() override {
+    return std::make_unique<ProtobufWkt::Struct>();
+  }
+
+  std::string name() const override { return "sample_extension_filter"; }
+};
+
+TEST_F(AccessLogImplTest, SampleExtensionFilter) {
+  Registry::RegisterFactory<SampleExtensionFilterFactory, ExtensionFilterFactory> registered;
+
+  const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  extension_filter:
+    name: sample_extension_filter
+    config:
+      rate: 5
+config:
+  path: /dev/null
+  )EOF";
+
+  InstanceSharedPtr logger = AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_);
+  // For rate=5 expect 1st request to be recorded, 2nd-5th skipped, and 6th recorded.
+  EXPECT_CALL(*file_, write(_));
+  logger->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+  for (int i = 0; i <= 3; ++i) {
+    EXPECT_CALL(*file_, write(_)).Times(0);
+    logger->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+  }
+  EXPECT_CALL(*file_, write(_));
+  logger->log(&request_headers_, &response_headers_, &response_trailers_, stream_info_);
+}
+
+TEST_F(AccessLogImplTest, UnregisteredExtensionFilter) {
+  {
+    const std::string yaml = R"EOF(
+name: envoy.file_access_log
+filter:
+  extension_filter:
+    name: unregistered_extension_filter
+    config:
+      foo: bar
+config:
+  path: /dev/null
+  )EOF";
+
+    EXPECT_THROW(AccessLogFactory::fromProto(parseAccessLogFromV2Yaml(yaml), context_),
+                 EnvoyException);
+  }
+
+  {
+    const std::string json = R"EOF(
+      {
+        "path": "/dev/null",
+        "filter": {"type": "extension_filter", "foo": "bar"}
+      }
+    )EOF";
+
+    EXPECT_THROW(AccessLogFactory::fromProto(parseAccessLogFromJson(json), context_),
+                 EnvoyException);
+  }
 }
 
 } // namespace

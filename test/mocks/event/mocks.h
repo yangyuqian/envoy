@@ -28,10 +28,10 @@ namespace Event {
 class MockDispatcher : public Dispatcher {
 public:
   MockDispatcher();
-  ~MockDispatcher();
+  ~MockDispatcher() override;
 
   // Dispatcher
-  TimeSystem& timeSystem() override { return time_system_; }
+  TimeSource& timeSource() override { return time_system_; }
   Network::ConnectionPtr
   createServerConnection(Network::ConnectionSocketPtr&& socket,
                          Network::TransportSocketPtr&& transport_socket) override {
@@ -84,6 +84,7 @@ public:
   }
 
   // Event::Dispatcher
+  MOCK_METHOD2(initializeStats, void(Stats::Scope&, const std::string&));
   MOCK_METHOD0(clearDeferredDeleteList, void());
   MOCK_METHOD2(createServerConnection_,
                Network::Connection*(Network::ConnectionSocket* socket,
@@ -112,6 +113,8 @@ public:
   MOCK_METHOD2(listenForSignal_, SignalEvent*(int signal_num, SignalCb cb));
   MOCK_METHOD1(post, void(std::function<void()> callback));
   MOCK_METHOD1(run, void(RunType type));
+  MOCK_METHOD1(setTrackedObject, const ScopeTrackedObject*(const ScopeTrackedObject* object));
+  MOCK_CONST_METHOD0(isThreadSafe, bool());
   Buffer::WatermarkFactory& getWatermarkFactory() override { return buffer_factory_; }
 
   GlobalTimeSystem time_system_;
@@ -123,19 +126,29 @@ class MockTimer : public Timer {
 public:
   MockTimer();
   MockTimer(MockDispatcher* dispatcher);
-  ~MockTimer();
+  ~MockTimer() override;
+
+  void invokeCallback() {
+    EXPECT_TRUE(enabled_);
+    enabled_ = false;
+    callback_();
+  }
 
   // Timer
   MOCK_METHOD0(disableTimer, void());
   MOCK_METHOD1(enableTimer, void(const std::chrono::milliseconds&));
+  MOCK_METHOD0(enabled, bool());
 
-  Event::TimerCb callback_;
+  bool enabled_{};
+  Event::TimerCb callback_; // TODO(mattklein123): This should be private and only called via
+                            // invoke callback to clear enabled_, but that will break too many
+                            // tests and can be done later.
 };
 
 class MockSignalEvent : public SignalEvent {
 public:
   MockSignalEvent(MockDispatcher* dispatcher);
-  ~MockSignalEvent();
+  ~MockSignalEvent() override;
 
   SignalCb callback_;
 };
@@ -143,7 +156,7 @@ public:
 class MockFileEvent : public FileEvent {
 public:
   MockFileEvent();
-  ~MockFileEvent();
+  ~MockFileEvent() override;
 
   MOCK_METHOD1(activate, void(uint32_t events));
   MOCK_METHOD1(setEnabled, void(uint32_t events));

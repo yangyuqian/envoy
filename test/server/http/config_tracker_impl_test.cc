@@ -9,7 +9,7 @@ using testing::_;
 namespace Envoy {
 namespace Server {
 
-class ConfigTrackerImplTest : public TestBase {
+class ConfigTrackerImplTest : public testing::Test {
 public:
   ConfigTrackerImplTest() : cbs_map(tracker.getCallbacksMap()) {
     EXPECT_TRUE(cbs_map.empty());
@@ -21,7 +21,7 @@ public:
 
   ProtobufTypes::MessagePtr test_msg() { return std::make_unique<ProtobufWkt::Any>(); }
 
-  virtual ~ConfigTrackerImplTest() = default;
+  ~ConfigTrackerImplTest() override = default;
 
   ConfigTrackerImpl tracker;
   const std::map<std::string, ConfigTracker::Cb>& cbs_map;

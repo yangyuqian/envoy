@@ -2,17 +2,18 @@
 
 #include <cstdint>
 
+#include "envoy/common/scope_tracker.h"
 #include "envoy/common/time.h"
 #include "envoy/common/token_bucket.h"
 #include "envoy/event/timer.h"
 
 #include "common/common/logger.h"
 
-#include "test/test_common/test_base.h"
 #include "test/test_common/test_time.h"
 
 #include "absl/strings/string_view.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 namespace Envoy {
 /**
@@ -43,14 +44,14 @@ public:
 class MockTimeSystem : public Event::TestTimeSystem {
 public:
   MockTimeSystem();
-  ~MockTimeSystem();
+  ~MockTimeSystem() override;
 
   // TODO(#4160): Eliminate all uses of MockTimeSystem, replacing with SimulatedTimeSystem,
   // where timer callbacks are triggered by the advancement of time. This implementation
   // matches recent behavior, where real-time timers were created directly in libevent
   // by dispatcher_impl.cc.
-  Event::SchedulerPtr createScheduler(Event::Libevent::BasePtr& base) override {
-    return real_time_.createScheduler(base);
+  Event::SchedulerPtr createScheduler(Event::Scheduler& base_scheduler) override {
+    return real_time_.createScheduler(base_scheduler);
   }
   void sleep(const Duration& duration) override { real_time_.sleep(duration); }
   Thread::CondVar::WaitStatus
@@ -62,14 +63,6 @@ public:
   MOCK_METHOD0(monotonicTime, MonotonicTime());
 
   Event::TestRealTimeSystem real_time_; // NO_CHECK_FORMAT(real_time)
-};
-
-class MockTokenBucket : public TokenBucket {
-public:
-  MockTokenBucket();
-  ~MockTokenBucket();
-
-  MOCK_METHOD1(consume, bool(uint64_t));
 };
 
 // Captures absl::string_view parameters into temp strings, for use
@@ -93,5 +86,9 @@ inline bool operator==(const char* str, const StringViewSaver& saver) {
 inline bool operator==(const StringViewSaver& saver, const char* str) {
   return saver.value() == str;
 }
+
+class MockScopedTrackedObject : public ScopeTrackedObject {
+  MOCK_CONST_METHOD2(dumpState, void(std::ostream&, int));
+};
 
 } // namespace Envoy

@@ -12,3 +12,6 @@ Extensions
   transport_socket/transport_socket
   resource_monitor/resource_monitor
   common/common
+  cluster/cluster
+  grpc_credential/grpc_credential
+  wasm/wasm

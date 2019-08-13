@@ -4,9 +4,9 @@
 #include "extensions/filters/http/ext_authz/config.h"
 
 #include "test/mocks/server/mocks.h"
-#include "test/test_common/test_base.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::Invoke;
@@ -15,6 +15,7 @@ namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace ExtAuthz {
+namespace {
 
 TEST(HttpExtAuthzConfigTest, CorrectProtoGrpc) {
   std::string yaml = R"EOF(
@@ -27,7 +28,7 @@ TEST(HttpExtAuthzConfigTest, CorrectProtoGrpc) {
 
   ExtAuthzFilterConfig factory;
   ProtobufTypes::MessagePtr proto_config = factory.createEmptyConfigProto();
-  MessageUtil::loadFromYaml(yaml, *proto_config);
+  TestUtility::loadFromYaml(yaml, *proto_config);
 
   testing::StrictMock<Server::Configuration::MockFactoryContext> context;
   EXPECT_CALL(context, localInfo()).Times(1);
@@ -76,11 +77,13 @@ TEST(HttpExtAuthzConfigTest, CorrectProtoHttp) {
     path_prefix: /extauth
     
   failure_mode_allow: true
+  with_request_body:
+    max_request_bytes: 100
   )EOF";
 
   ExtAuthzFilterConfig factory;
   ProtobufTypes::MessagePtr proto_config = factory.createEmptyConfigProto();
-  MessageUtil::loadFromYaml(yaml, *proto_config);
+  TestUtility::loadFromYaml(yaml, *proto_config);
   testing::StrictMock<Server::Configuration::MockFactoryContext> context;
   EXPECT_CALL(context, localInfo()).Times(1);
   EXPECT_CALL(context, clusterManager()).Times(1);
@@ -92,6 +95,7 @@ TEST(HttpExtAuthzConfigTest, CorrectProtoHttp) {
   cb(filter_callback);
 }
 
+} // namespace
 } // namespace ExtAuthz
 } // namespace HttpFilters
 } // namespace Extensions

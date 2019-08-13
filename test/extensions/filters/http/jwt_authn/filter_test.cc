@@ -3,21 +3,23 @@
 
 #include "test/extensions/filters/http/jwt_authn/mock.h"
 #include "test/mocks/server/mocks.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
 using ::google::jwt_verify::Status;
 
 using testing::_;
 using testing::Invoke;
+using testing::Return;
 
 namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace JwtAuthn {
+namespace {
 
 class MockMatcher : public Matcher {
 public:
@@ -30,10 +32,11 @@ public:
       const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication& proto_config,
       const std::string& stats_prefix, Server::Configuration::FactoryContext& context)
       : FilterConfig(proto_config, stats_prefix, context) {}
-  MOCK_CONST_METHOD1(findVerifier, const Verifier*(const Http::HeaderMap& headers));
+  MOCK_CONST_METHOD2(findVerifier, const Verifier*(const Http::HeaderMap& headers,
+                                                   const StreamInfo::FilterState& filter_state));
 };
 
-class FilterTest : public TestBase {
+class FilterTest : public testing::Test {
 public:
   void SetUp() override {
     mock_config_ = ::std::make_shared<MockFilterConfig>(proto_config_, "", mock_context_);
@@ -44,9 +47,7 @@ public:
   }
 
   void setupMockConfig() {
-    EXPECT_CALL(*mock_config_.get(), findVerifier(_)).WillOnce(Invoke([&](const Http::HeaderMap&) {
-      return mock_verifier_.get();
-    }));
+    EXPECT_CALL(*mock_config_.get(), findVerifier(_, _)).WillOnce(Return(mock_verifier_.get()));
   }
 
   JwtAuthentication proto_config_;
@@ -69,6 +70,8 @@ TEST_F(FilterTest, InlineOK) {
 
   auto headers = Http::TestHeaderMapImpl{};
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(headers, false));
+  Http::MetadataMap metadata_map{{"metadata", "metadata"}};
+  EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->decodeMetadata(metadata_map));
   EXPECT_EQ(1U, mock_config_->stats().allowed_.value());
 
   Buffer::OwnedImpl data("");
@@ -101,11 +104,13 @@ TEST_F(FilterTest, TestSetPayloadCall) {
   EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->decodeTrailers(headers));
 }
 
-// This test verifies Verifier::Callback is called inline with a failure status.
+// This test verifies Verifier::Callback is called inline with a failure(401 Unauthorized) status.
 // All functions should return Continue except decodeHeaders(), it returns StopIteration.
-TEST_F(FilterTest, InlineFailure) {
+TEST_F(FilterTest, InlineUnauthorizedFailure) {
   setupMockConfig();
   // A failed authentication completed inline: callback is called inside verify().
+
+  EXPECT_CALL(filter_callbacks_, sendLocalReply(Http::Code::Unauthorized, _, _, _, _));
   EXPECT_CALL(*mock_verifier_, verify(_)).WillOnce(Invoke([](ContextSharedPtr context) {
     context->callback()->onComplete(Status::JwtBadFormat);
   }));
@@ -117,6 +122,28 @@ TEST_F(FilterTest, InlineFailure) {
   Buffer::OwnedImpl data("");
   EXPECT_EQ(Http::FilterDataStatus::Continue, filter_->decodeData(data, false));
   EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->decodeTrailers(headers));
+  EXPECT_EQ("jwt_authn_access_denied", filter_callbacks_.details_);
+}
+
+// This test verifies Verifier::Callback is called inline with a failure(403 Forbidden) status.
+// All functions should return Continue except decodeHeaders(), it returns StopIteration.
+TEST_F(FilterTest, InlineForbiddenFailure) {
+  setupMockConfig();
+  // A failed authentication completed inline: callback is called inside verify().
+
+  EXPECT_CALL(filter_callbacks_, sendLocalReply(Http::Code::Forbidden, _, _, _, _));
+  EXPECT_CALL(*mock_verifier_, verify(_)).WillOnce(Invoke([](ContextSharedPtr context) {
+    context->callback()->onComplete(Status::JwtAudienceNotAllowed);
+  }));
+
+  auto headers = Http::TestHeaderMapImpl{};
+  EXPECT_EQ(Http::FilterHeadersStatus::StopIteration, filter_->decodeHeaders(headers, false));
+  EXPECT_EQ(1U, mock_config_->stats().denied_.value());
+
+  Buffer::OwnedImpl data("");
+  EXPECT_EQ(Http::FilterDataStatus::Continue, filter_->decodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->decodeTrailers(headers));
+  EXPECT_EQ("jwt_authn_access_denied", filter_callbacks_.details_);
 }
 
 // This test verifies Verifier::Callback is called with OK status after verify().
@@ -136,7 +163,6 @@ TEST_F(FilterTest, OutBoundOK) {
   EXPECT_EQ(Http::FilterTrailersStatus::StopIteration, filter_->decodeTrailers(headers));
 
   // Callback is called now with OK status.
-  auto context = Verifier::createContext(headers, &verifier_callback_);
   m_cb->onComplete(Status::Ok);
 
   EXPECT_EQ(1U, mock_config_->stats().allowed_.value());
@@ -144,8 +170,9 @@ TEST_F(FilterTest, OutBoundOK) {
   EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->decodeTrailers(headers));
 }
 
-// This test verifies Verifier::Callback is called with a failure after verify().
-TEST_F(FilterTest, OutBoundFailure) {
+// This test verifies Verifier::Callback is called with a failure(401 Unauthorized) after verify()
+// returns any NonOK status except JwtAudienceNotAllowed.
+TEST_F(FilterTest, OutBoundUnauthorizedFailure) {
   setupMockConfig();
   Verifier::Callbacks* m_cb;
   // callback is saved, not called right
@@ -160,8 +187,8 @@ TEST_F(FilterTest, OutBoundFailure) {
   EXPECT_EQ(Http::FilterDataStatus::StopIterationAndWatermark, filter_->decodeData(data, false));
   EXPECT_EQ(Http::FilterTrailersStatus::StopIteration, filter_->decodeTrailers(headers));
 
-  auto context = Verifier::createContext(headers, &verifier_callback_);
   // Callback is called now with a failure status.
+  EXPECT_CALL(filter_callbacks_, sendLocalReply(Http::Code::Unauthorized, _, _, _, _));
   m_cb->onComplete(Status::JwtBadFormat);
 
   EXPECT_EQ(1U, mock_config_->stats().denied_.value());
@@ -172,11 +199,38 @@ TEST_F(FilterTest, OutBoundFailure) {
   m_cb->onComplete(Status::JwtBadFormat);
 }
 
+// This test verifies Verifier::Callback is called with a failure(403 Forbidden) after verify()
+// returns JwtAudienceNotAllowed.
+TEST_F(FilterTest, OutBoundForbiddenFailure) {
+  setupMockConfig();
+  Verifier::Callbacks* m_cb;
+  // callback is saved, not called right
+  EXPECT_CALL(*mock_verifier_, verify(_)).WillOnce(Invoke([&m_cb](ContextSharedPtr context) {
+    m_cb = context->callback();
+  }));
+
+  auto headers = Http::TestHeaderMapImpl{};
+  EXPECT_EQ(Http::FilterHeadersStatus::StopIteration, filter_->decodeHeaders(headers, false));
+
+  Buffer::OwnedImpl data("");
+  EXPECT_EQ(Http::FilterDataStatus::StopIterationAndWatermark, filter_->decodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::StopIteration, filter_->decodeTrailers(headers));
+
+  // Callback is called now with a failure status.
+  EXPECT_CALL(filter_callbacks_, sendLocalReply(Http::Code::Forbidden, _, _, _, _));
+  m_cb->onComplete(Status::JwtAudienceNotAllowed);
+
+  EXPECT_EQ(1U, mock_config_->stats().denied_.value());
+  EXPECT_EQ(Http::FilterDataStatus::Continue, filter_->decodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->decodeTrailers(headers));
+
+  // Should be OK to call the onComplete() again.
+  m_cb->onComplete(Status::JwtAudienceNotAllowed);
+}
+
 // Test verifies that if no route matched requirement, then request is allowed.
 TEST_F(FilterTest, TestNoRouteMatched) {
-  EXPECT_CALL(*mock_config_.get(), findVerifier(_)).WillOnce(Invoke([&](const Http::HeaderMap&) {
-    return nullptr;
-  }));
+  EXPECT_CALL(*mock_config_.get(), findVerifier(_, _)).WillOnce(Return(nullptr));
 
   auto headers = Http::TestHeaderMapImpl{};
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(headers, false));
@@ -187,6 +241,7 @@ TEST_F(FilterTest, TestNoRouteMatched) {
   EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->decodeTrailers(headers));
 }
 
+} // namespace
 } // namespace JwtAuthn
 } // namespace HttpFilters
 } // namespace Extensions

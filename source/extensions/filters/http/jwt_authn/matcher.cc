@@ -6,7 +6,6 @@
 #include "absl/strings/match.h"
 
 using ::envoy::api::v2::route::RouteMatch;
-using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtProvider;
 using ::envoy::config::filter::http::jwt_authn::v2alpha::RequirementRule;
 using Envoy::Router::ConfigUtility;
 
@@ -19,7 +18,7 @@ namespace {
 /**
  * Perform a match against any HTTP header or pseudo-header.
  */
-class BaseMatcherImpl : public Matcher, public Logger::Loggable<Logger::Id::filter> {
+class BaseMatcherImpl : public Matcher, public Logger::Loggable<Logger::Id::jwt> {
 public:
   BaseMatcherImpl(const RequirementRule& rule)
       : case_sensitive_(PROTOBUF_GET_WRAPPED_OR_DEFAULT(rule.match(), case_sensitive, true)) {
@@ -90,8 +89,8 @@ public:
   bool matches(const Http::HeaderMap& headers) const override {
     if (BaseMatcherImpl::matchRoute(headers)) {
       const Http::HeaderString& path = headers.Path()->value();
-      size_t compare_length = Http::Utility::findQueryStringStart(path) - path.c_str();
-
+      const size_t compare_length =
+          path.getStringView().length() - Http::Utility::findQueryStringStart(path).length();
       auto real_path = path.getStringView().substr(0, compare_length);
       bool match = case_sensitive_ ? real_path == path_ : StringUtil::caseCompare(real_path, path_);
       if (match) {
@@ -119,8 +118,10 @@ public:
   bool matches(const Http::HeaderMap& headers) const override {
     if (BaseMatcherImpl::matchRoute(headers)) {
       const Http::HeaderString& path = headers.Path()->value();
-      const char* query_string_start = Http::Utility::findQueryStringStart(path);
-      if (std::regex_match(path.c_str(), query_string_start, regex_)) {
+      const absl::string_view query_string = Http::Utility::findQueryStringStart(path);
+      absl::string_view path_view = path.getStringView();
+      path_view.remove_suffix(query_string.length());
+      if (std::regex_match(path_view.begin(), path_view.end(), regex_)) {
         ENVOY_LOG(debug, "Regex requirement '{}' matched.", regex_str_);
         return true;
       }

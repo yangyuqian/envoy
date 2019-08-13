@@ -8,13 +8,11 @@
 from __future__ import print_function
 
 import argparse
+import logging
 import os
 import shutil
-import logging
 import subprocess
 import sys
-
-os.putenv("BUILDIFIER_BIN", "/usr/local/bin/buildifier")
 
 tools = os.path.dirname(os.path.realpath(__file__))
 tmp = os.path.join(os.getenv('TEST_TMPDIR', "/tmp"), "check_format_test")
@@ -104,26 +102,26 @@ def emitStdoutAsError(stdout):
   logging.error("\n".join(stdout))
 
 
-def expectError(status, stdout, expected_substring):
+def expectError(filename, status, stdout, expected_substring):
   if status == 0:
-    logging.error("Expected failure `%s`, but succeeded" % expected_substring)
+    logging.error("%s: Expected failure `%s`, but succeeded" % (filename, expected_substring))
     return 1
   for line in stdout:
     if expected_substring in line:
       return 0
-  logging.error("Could not find '%s' in:\n" % expected_substring)
+  logging.error("%s: Could not find '%s' in:\n" % (filename, expected_substring))
   emitStdoutAsError(stdout)
   return 1
 
 
 def fixFileExpectingFailure(filename, expected_substring):
   command, infile, outfile, status, stdout = fixFileHelper(filename)
-  return expectError(status, stdout, expected_substring)
+  return expectError(filename, status, stdout, expected_substring)
 
 
 def checkFileExpectingError(filename, expected_substring):
   command, status, stdout = runCheckFormat("check", getInputFile(filename))
-  return expectError(status, stdout, expected_substring)
+  return expectError(filename, status, stdout, expected_substring)
 
 
 def checkAndFixError(filename, expected_substring):
@@ -136,7 +134,7 @@ def checkToolNotFoundError():
   # Temporarily change PATH to test the error about lack of external tools.
   oldPath = os.environ["PATH"]
   os.environ["PATH"] = "/sbin:/usr/sbin"
-  clang_format = os.getenv("CLANG_FORMAT", "clang-format-7")
+  clang_format = os.getenv("CLANG_FORMAT", "clang-format-8")
   errors = checkFileExpectingError("no_namespace_envoy.cc", "Command %s not found." % clang_format)
   os.environ["PATH"] = oldPath
   return errors
@@ -195,6 +193,7 @@ if __name__ == "__main__":
   errors += checkUnfixableError("std_get_time.cc", "std::get_time")
   errors += checkUnfixableError("no_namespace_envoy.cc",
                                 "Unable to find Envoy namespace or NOLINT(namespace-envoy)")
+  errors += checkUnfixableError("bazel_tools.BUILD", "unexpected @bazel_tools reference")
   errors += checkUnfixableError("proto.BUILD", "unexpected direct external dependency on protobuf")
   errors += checkUnfixableError("proto_deps.cc", "unexpected direct dependency on google.protobuf")
   errors += checkUnfixableError("attribute_packed.cc", "Don't use __attribute__((packed))")
@@ -209,6 +208,15 @@ if __name__ == "__main__":
       "version_history.rst",
       "Version history line malformed. Does not match VERSION_HISTORY_NEW_LINE_REGEX in "
       "check_format.py")
+  errors += checkUnfixableError(
+      "counter_from_string.cc",
+      "Don't lookup stats by name at runtime; use StatName saved during construction")
+  errors += checkUnfixableError(
+      "gauge_from_string.cc",
+      "Don't lookup stats by name at runtime; use StatName saved during construction")
+  errors += checkUnfixableError(
+      "histogram_from_string.cc",
+      "Don't lookup stats by name at runtime; use StatName saved during construction")
 
   errors += fixFileExpectingFailure(
       "api/missing_package.proto",
@@ -228,6 +236,9 @@ if __name__ == "__main__":
   errors += checkAndFixError("bad_envoy_build_sys_ref.BUILD", "Superfluous '@envoy//' prefix")
   errors += checkAndFixError("proto_format.proto", "clang-format check failed")
   errors += checkAndFixError("api/java_options.proto", "Java proto option")
+  errors += checkAndFixError(
+      "cpp_std.cc",
+      "term absl::make_unique< should be replaced with standard library term std::make_unique<")
 
   errors += checkFileExpectingOK("real_time_source_override.cc")
   errors += checkFileExpectingOK("time_system_wait_for.cc")

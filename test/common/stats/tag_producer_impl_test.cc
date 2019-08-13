@@ -3,8 +3,9 @@
 #include "common/config/well_known_names.h"
 #include "common/stats/tag_producer_impl.h"
 
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Stats {
@@ -16,7 +17,7 @@ TEST(TagProducerTest, CheckConstructor) {
   auto& tag_specifier1 = *stats_config.mutable_stats_tags()->Add();
   tag_specifier1.set_tag_name("test.x");
   tag_specifier1.set_fixed_value("xxx");
-  TagProducerImpl{stats_config};
+  EXPECT_NO_THROW(TagProducerImpl{stats_config});
 
   // Should raise an error when duplicate tag names are specified.
   auto& tag_specifier2 = *stats_config.mutable_stats_tags()->Add();

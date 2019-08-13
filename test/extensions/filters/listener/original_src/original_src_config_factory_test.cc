@@ -6,9 +6,9 @@
 #include "extensions/filters/listener/original_src/original_src_config_factory.h"
 
 #include "test/mocks/server/mocks.h"
-#include "test/test_common/test_base.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::Invoke;
 
@@ -26,7 +26,7 @@ TEST(OriginalSrcConfigFactoryTest, TestCreateFactory) {
 
   OriginalSrcConfigFactory factory;
   ProtobufTypes::MessagePtr proto_config = factory.createEmptyConfigProto();
-  MessageUtil::loadFromYaml(yaml, *proto_config);
+  TestUtility::loadFromYaml(yaml, *proto_config);
 
   Server::Configuration::MockListenerFactoryContext context;
 

@@ -1,7 +1,8 @@
 #include "extensions/common/tap/admin.h"
 
 #include "test/mocks/server/mocks.h"
-#include "test/test_common/test_base.h"
+
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::Return;
@@ -21,7 +22,7 @@ public:
                void(envoy::service::tap::v2alpha::TapConfig&& proto_config, Sink* admin_streamer));
 };
 
-class AdminHandlerTest : public TestBase {
+class AdminHandlerTest : public testing::Test {
 public:
   AdminHandlerTest() {
     EXPECT_CALL(admin_, addHandler("/tap", "tap filter control", _, true, true))
@@ -29,7 +30,9 @@ public:
     handler_ = std::make_unique<AdminHandler>(admin_, main_thread_dispatcher_);
   }
 
-  ~AdminHandlerTest() { EXPECT_CALL(admin_, removeHandler("/tap")).WillOnce(Return(true)); }
+  ~AdminHandlerTest() override {
+    EXPECT_CALL(admin_, removeHandler("/tap")).WillOnce(Return(true));
+  }
 
   Server::MockAdmin admin_;
   Event::MockDispatcher main_thread_dispatcher_;

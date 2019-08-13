@@ -6,10 +6,10 @@
 #include "common/filesystem/directory.h"
 
 #include "test/test_common/environment.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Filesystem {
@@ -18,7 +18,7 @@ namespace Filesystem {
 // as it looks like some versions of libstdc++ have a bug in
 // std::experimental::filesystem::remove_all where it fails with nested directories:
 // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=71313
-class DirectoryTest : public TestBase {
+class DirectoryTest : public testing::Test {
 public:
   DirectoryTest() : dir_path_(TestEnvironment::temporaryPath("envoy_test")) {
     files_to_remove_.push(dir_path_);
@@ -70,18 +70,18 @@ struct EntryHash {
   }
 };
 
-typedef std::unordered_set<DirectoryEntry, EntryHash> EntrySet;
+using EntrySet = std::unordered_set<DirectoryEntry, EntryHash>;
 
 EntrySet getDirectoryContents(const std::string& dir_path, bool recursive) {
   Directory directory(dir_path);
   EntrySet ret;
-  for (const DirectoryEntry entry : directory) {
+  for (const DirectoryEntry& entry : directory) {
     ret.insert(entry);
     if (entry.type_ == FileType::Directory && entry.name_ != "." && entry.name_ != ".." &&
         recursive) {
       std::string subdir_name = entry.name_;
       EntrySet subdir = getDirectoryContents(dir_path + "/" + subdir_name, recursive);
-      for (const DirectoryEntry entry : subdir) {
+      for (const DirectoryEntry& entry : subdir) {
         ret.insert({subdir_name + "/" + entry.name_, entry.type_});
       }
     }

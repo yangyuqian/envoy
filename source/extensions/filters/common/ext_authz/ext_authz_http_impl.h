@@ -15,14 +15,14 @@ namespace Common {
 namespace ExtAuthz {
 
 class Matcher;
-typedef std::shared_ptr<Matcher> MatcherSharedPtr;
+using MatcherSharedPtr = std::shared_ptr<Matcher>;
 
 /**
  *  Matchers describe the rules for matching authorization request and response headers.
  */
 class Matcher {
 public:
-  virtual ~Matcher() {}
+  virtual ~Matcher() = default;
 
   /**
    * Returns whether or not the header key matches the rules of the matcher.
@@ -82,13 +82,13 @@ public:
   const MatcherSharedPtr& requestHeaderMatchers() const { return request_header_matchers_; }
 
   /**
-   * Returns a list of matchers used for selecting the the authorization response headers that
+   * Returns a list of matchers used for selecting the authorization response headers that
    * should be send back to the client.
    */
   const MatcherSharedPtr& clientHeaderMatchers() const { return client_header_matchers_; }
 
   /**
-   *  Returns a list of matchers used for selecting the the authorization response headers that
+   *  Returns a list of matchers used for selecting the authorization response headers that
    * should be send to an the upstream server.
    */
   const MatcherSharedPtr& upstreamHeaderMatchers() const { return upstream_header_matchers_; }
@@ -115,7 +115,7 @@ private:
   const std::string path_prefix_;
 };
 
-typedef std::shared_ptr<ClientConfig> ClientConfigSharedPtr;
+using ClientConfigSharedPtr = std::shared_ptr<ClientConfig>;
 
 /**
  * This client implementation is used when the Ext_Authz filter needs to communicate with an
@@ -129,7 +129,7 @@ class RawHttpClientImpl : public Client,
                           Logger::Loggable<Logger::Id::config> {
 public:
   explicit RawHttpClientImpl(Upstream::ClusterManager& cm, ClientConfigSharedPtr config);
-  ~RawHttpClientImpl();
+  ~RawHttpClientImpl() override;
 
   // ExtAuthz::Client
   void cancel() override;

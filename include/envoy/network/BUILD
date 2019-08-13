@@ -67,6 +67,10 @@ envoy_cc_library(
 envoy_cc_library(
     name = "io_handle_interface",
     hdrs = ["io_handle.h"],
+    deps = [
+        "//include/envoy/api:io_error_interface",
+        "//source/common/common:assert_lib",
+    ],
 )
 
 envoy_cc_library(
@@ -96,6 +100,7 @@ envoy_cc_library(
         ":connection_interface",
         ":listen_socket_interface",
         "//include/envoy/stats:stats_interface",
+        "@envoy_api//envoy/api/v2:lds_cc",
     ],
 )
 

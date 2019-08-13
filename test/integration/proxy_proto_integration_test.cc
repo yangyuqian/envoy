@@ -4,10 +4,10 @@
 
 #include "test/test_common/network_utility.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "fmt/format.h"
+#include "gtest/gtest.h"
 
 namespace Envoy {
 
@@ -95,6 +95,7 @@ TEST_P(ProxyProtoIntegrationTest, OriginalDst) {
   // incoming (server) connection as the destination address for the outgoing (client) connection.
   config_helper_.addConfigModifier([&](envoy::config::bootstrap::v2::Bootstrap& bootstrap) -> void {
     auto* cluster = bootstrap.mutable_static_resources()->mutable_clusters(0);
+    cluster->mutable_hosts()->Clear();
     cluster->set_type(envoy::api::v2::Cluster::ORIGINAL_DST);
     cluster->set_lb_policy(envoy::api::v2::Cluster::ORIGINAL_DST_LB);
   });

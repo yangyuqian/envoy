@@ -9,9 +9,9 @@ namespace Common {
 namespace RBAC {
 
 RoleBasedAccessControlEngineImpl::RoleBasedAccessControlEngineImpl(
-    const envoy::config::rbac::v2alpha::RBAC& rules)
+    const envoy::config::rbac::v2::RBAC& rules)
     : allowed_if_matched_(rules.action() ==
-                          envoy::config::rbac::v2alpha::RBAC_Action::RBAC_Action_ALLOW) {
+                          envoy::config::rbac::v2::RBAC_Action::RBAC_Action_ALLOW) {
   for (const auto& policy : rules.policies()) {
     policies_.insert(std::make_pair(policy.first, policy.second));
   }
@@ -23,11 +23,11 @@ bool RoleBasedAccessControlEngineImpl::allowed(const Network::Connection& connec
                                                std::string* effective_policy_id) const {
   bool matched = false;
 
-  for (auto it = policies_.begin(); it != policies_.end(); it++) {
-    if (it->second.matches(connection, headers, metadata)) {
+  for (const auto& policy : policies_) {
+    if (policy.second.matches(connection, headers, metadata)) {
       matched = true;
       if (effective_policy_id != nullptr) {
-        *effective_policy_id = it->first;
+        *effective_policy_id = policy.first;
       }
       break;
     }

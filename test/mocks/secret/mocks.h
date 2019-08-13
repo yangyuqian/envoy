@@ -5,9 +5,8 @@
 #include "envoy/server/transport_socket_config.h"
 #include "envoy/ssl/tls_certificate_config.h"
 
-#include "test/test_common/test_base.h"
-
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Secret {
@@ -15,7 +14,7 @@ namespace Secret {
 class MockSecretManager : public SecretManager {
 public:
   MockSecretManager();
-  ~MockSecretManager();
+  ~MockSecretManager() override;
 
   MOCK_METHOD1(addStaticSecret, void(const envoy::api::v2::auth::Secret& secret));
   MOCK_CONST_METHOD1(findStaticTlsCertificateProvider,
@@ -43,7 +42,7 @@ public:
 class MockSecretCallbacks : public SecretCallbacks {
 public:
   MockSecretCallbacks();
-  ~MockSecretCallbacks();
+  ~MockSecretCallbacks() override;
   MOCK_METHOD0(onAddOrUpdateSecret, void());
 };
 

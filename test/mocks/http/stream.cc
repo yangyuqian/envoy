@@ -17,12 +17,12 @@ MockStream::MockStream() {
 
   ON_CALL(*this, resetStream(_)).WillByDefault(Invoke([this](StreamResetReason reason) -> void {
     for (StreamCallbacks* callbacks : callbacks_) {
-      callbacks->onResetStream(reason);
+      callbacks->onResetStream(reason, absl::string_view());
     }
   }));
 }
 
-MockStream::~MockStream() {}
+MockStream::~MockStream() = default;
 
 } // namespace Http
 } // namespace Envoy

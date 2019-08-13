@@ -5,8 +5,11 @@
 #include <string>
 #include <vector>
 
+#include "envoy/server/process_context.h"
+
 #include "common/http/codec_client.h"
 
+#include "test/common/grpc/grpc_client_integration.h"
 #include "test/config/utility.h"
 #include "test/integration/fake_upstream.h"
 #include "test/integration/server.h"
@@ -14,10 +17,12 @@
 #include "test/mocks/buffer/mocks.h"
 #include "test/mocks/server/mocks.h"
 #include "test/test_common/environment.h"
+#include "test/test_common/network_utility.h"
 #include "test/test_common/printers.h"
 #include "test/test_common/simulated_time_system.h"
 #include "test/test_common/test_time.h"
 
+#include "absl/types/optional.h"
 #include "spdlog/spdlog.h"
 
 namespace Envoy {
@@ -55,7 +60,8 @@ public:
   void decodeMetadata(Http::MetadataMapPtr&& metadata_map) override;
 
   // Http::StreamCallbacks
-  void onResetStream(Http::StreamResetReason reason) override;
+  void onResetStream(Http::StreamResetReason reason,
+                     absl::string_view transport_failure_reason) override;
   void onAboveWriteBufferHighWatermark() override {}
   void onBelowWriteBufferLowWatermark() override {}
 
@@ -77,7 +83,7 @@ private:
   Http::StreamResetReason reset_reason_{};
 };
 
-typedef std::unique_ptr<IntegrationStreamDecoder> IntegrationStreamDecoderPtr;
+using IntegrationStreamDecoderPtr = std::unique_ptr<IntegrationStreamDecoder>;
 
 /**
  * TCP client used during integration testing.
@@ -89,12 +95,16 @@ public:
 
   void close();
   void waitForData(const std::string& data, bool exact_match = true);
+  // wait for at least `length` bytes to be received
+  void waitForData(size_t length);
   void waitForDisconnect(bool ignore_spurious_events = false);
   void waitForHalfClose();
   void readDisable(bool disabled);
   void write(const std::string& data, bool end_stream = false, bool verify = true);
   const std::string& data() { return payload_reader_->data(); }
   bool connected() const { return !disconnected_; }
+  // clear up to the `count` number of bytes of received data
+  void clearData(size_t count = std::string::npos) { payload_reader_->clearData(count); }
 
 private:
   struct ConnectionCallbacks : public Network::ConnectionCallbacks {
@@ -115,7 +125,7 @@ private:
   MockWatermarkBuffer* client_write_buffer_;
 };
 
-typedef std::unique_ptr<IntegrationTcpClient> IntegrationTcpClientPtr;
+using IntegrationTcpClientPtr = std::unique_ptr<IntegrationTcpClient>;
 
 struct ApiFilesystemConfig {
   std::string bootstrap_path_;
@@ -128,18 +138,28 @@ struct ApiFilesystemConfig {
 /**
  * Test fixture for all integration tests.
  */
-class BaseIntegrationTest : Logger::Loggable<Logger::Id::testing> {
+class BaseIntegrationTest : protected Logger::Loggable<Logger::Id::testing> {
 public:
   using TestTimeSystemPtr = std::unique_ptr<Event::TestTimeSystem>;
+  using InstanceConstSharedPtrFn = std::function<Network::Address::InstanceConstSharedPtr(int)>;
 
+  // Creates a test fixture with an upstream bound to INADDR_ANY on an unspecified port using the
+  // provided IP |version|.
   BaseIntegrationTest(Network::Address::IpVersion version,
                       const std::string& config = ConfigHelper::HTTP_PROXY_CONFIG);
   BaseIntegrationTest(Network::Address::IpVersion version, TestTimeSystemPtr,
                       const std::string& config = ConfigHelper::HTTP_PROXY_CONFIG)
       : BaseIntegrationTest(version, config) {}
+  // Creates a test fixture with a specified |upstream_address| function that provides the IP and
+  // port to use.
+  BaseIntegrationTest(const InstanceConstSharedPtrFn& upstream_address_fn,
+                      Network::Address::IpVersion version,
+                      const std::string& config = ConfigHelper::HTTP_PROXY_CONFIG);
 
-  virtual ~BaseIntegrationTest() {}
+  virtual ~BaseIntegrationTest() = default;
 
+  // TODO(jmarantz): Remove this once
+  // https://github.com/envoyproxy/envoy-filter-example/pull/69 is reverted.
   static TestTimeSystemPtr realTime() { return TestTimeSystemPtr(); }
 
   // Initialize the basic proto configuration, create fake upstreams, and start Envoy.
@@ -181,20 +201,62 @@ public:
 
   Stats::IsolatedStoreImpl stats_store_;
   Api::ApiPtr api_;
+  Api::ApiPtr api_for_server_stat_store_;
   MockBufferFactory* mock_buffer_factory_; // Will point to the dispatcher's factory.
 
   // Functions for testing reloadable config (xDS)
   void createXdsUpstream();
   void createXdsConnection();
   void cleanUpXdsConnection();
+
+  // Helpers for setting up expectations and making the internal gears turn for xDS request/response
+  // sending/receiving to/from the (imaginary) xDS server. You should almost always use
+  // compareDiscoveryRequest() and sendDiscoveryResponse(), but the SotW/delta-specific versions are
+  // available if you're writing a SotW/delta-specific test.
   AssertionResult
   compareDiscoveryRequest(const std::string& expected_type_url, const std::string& expected_version,
                           const std::vector<std::string>& expected_resource_names,
+                          const std::vector<std::string>& expected_resource_names_added,
+                          const std::vector<std::string>& expected_resource_names_removed,
                           const Protobuf::int32 expected_error_code = Grpc::Status::GrpcStatus::Ok,
                           const std::string& expected_error_message = "");
   template <class T>
-  void sendDiscoveryResponse(const std::string& type_url, const std::vector<T>& messages,
-                             const std::string& version) {
+  void sendDiscoveryResponse(const std::string& type_url, const std::vector<T>& state_of_the_world,
+                             const std::vector<T>& added_or_updated,
+                             const std::vector<std::string>& removed, const std::string& version) {
+    if (sotw_or_delta_ == Grpc::SotwOrDelta::Sotw) {
+      sendSotwDiscoveryResponse(type_url, state_of_the_world, version);
+    } else {
+      sendDeltaDiscoveryResponse(type_url, added_or_updated, removed, version);
+    }
+  }
+
+  AssertionResult compareDeltaDiscoveryRequest(
+      const std::string& expected_type_url,
+      const std::vector<std::string>& expected_resource_subscriptions,
+      const std::vector<std::string>& expected_resource_unsubscriptions,
+      const Protobuf::int32 expected_error_code = Grpc::Status::GrpcStatus::Ok,
+      const std::string& expected_error_message = "") {
+    return compareDeltaDiscoveryRequest(expected_type_url, expected_resource_subscriptions,
+                                        expected_resource_unsubscriptions, xds_stream_,
+                                        expected_error_code, expected_error_message);
+  }
+
+  AssertionResult compareDeltaDiscoveryRequest(
+      const std::string& expected_type_url,
+      const std::vector<std::string>& expected_resource_subscriptions,
+      const std::vector<std::string>& expected_resource_unsubscriptions, FakeStreamPtr& stream,
+      const Protobuf::int32 expected_error_code = Grpc::Status::GrpcStatus::Ok,
+      const std::string& expected_error_message = "");
+  AssertionResult compareSotwDiscoveryRequest(
+      const std::string& expected_type_url, const std::string& expected_version,
+      const std::vector<std::string>& expected_resource_names,
+      const Protobuf::int32 expected_error_code = Grpc::Status::GrpcStatus::Ok,
+      const std::string& expected_error_message = "");
+
+  template <class T>
+  void sendSotwDiscoveryResponse(const std::string& type_url, const std::vector<T>& messages,
+                                 const std::string& version) {
     envoy::api::v2::DiscoveryResponse discovery_response;
     discovery_response.set_version_info(version);
     discovery_response.set_type_url(type_url);
@@ -202,6 +264,32 @@ public:
       discovery_response.add_resources()->PackFrom(message);
     }
     xds_stream_->sendGrpcMessage(discovery_response);
+  }
+  template <class T>
+  void
+  sendDeltaDiscoveryResponse(const std::string& type_url, const std::vector<T>& added_or_updated,
+                             const std::vector<std::string>& removed, const std::string& version) {
+    sendDeltaDiscoveryResponse(type_url, added_or_updated, removed, version, xds_stream_);
+  }
+  template <class T>
+  void sendDeltaDiscoveryResponse(const std::string& type_url,
+                                  const std::vector<T>& added_or_updated,
+                                  const std::vector<std::string>& removed,
+                                  const std::string& version, FakeStreamPtr& stream) {
+    envoy::api::v2::DeltaDiscoveryResponse response;
+    response.set_system_version_info("system_version_info_this_is_a_test");
+    response.set_type_url(type_url);
+    for (const auto& message : added_or_updated) {
+      auto* resource = response.add_resources();
+      ProtobufWkt::Any temp_any;
+      temp_any.PackFrom(message);
+      resource->set_name(TestUtility::xdsResourceName(temp_any));
+      resource->set_version(version);
+      resource->mutable_resource()->PackFrom(message);
+    }
+    *response.mutable_removed_resources() = {removed.begin(), removed.end()};
+    response.set_nonce("noncense");
+    stream->sendGrpcMessage(response);
   }
 
 private:
@@ -236,8 +324,12 @@ protected:
 
   // The IpVersion (IPv4, IPv6) to use.
   Network::Address::IpVersion version_;
+  // IP Address to use when binding sockets on upstreams.
+  InstanceConstSharedPtrFn upstream_address_fn_;
   // The config for envoy start-up.
   ConfigHelper config_helper_;
+  // The ProcessObject to use when constructing the envoy server.
+  absl::optional<std::reference_wrapper<ProcessObject>> process_object_{absl::nullopt};
 
   // Steps that should be done in parallel with the envoy server starting. E.g., xDS
   // pre-init, control plane synchronization needed for server start.
@@ -270,8 +362,11 @@ protected:
   FakeStreamPtr xds_stream_;
   testing::NiceMock<Server::Configuration::MockTransportSocketFactoryContext> factory_context_;
   Extensions::TransportSockets::Tls::ContextManagerImpl context_manager_{timeSystem()};
-  bool create_xds_upstream_{false}; // TODO(alyssawilk) true by default.
+  bool create_xds_upstream_{false};
   bool tls_xds_upstream_{false};
+  bool use_lds_{true}; // Use the integration framework's LDS set up.
+  Grpc::SotwOrDelta sotw_or_delta_{Grpc::SotwOrDelta::Sotw};
+  std::vector<uint32_t> ports_;
 
 private:
   // The type for the Envoy-to-backend connection

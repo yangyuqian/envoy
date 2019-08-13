@@ -4,7 +4,6 @@
 
 #include "common/buffer/buffer_impl.h"
 #include "common/common/empty_string.h"
-#include "common/config/filter_json.h"
 #include "common/http/context_impl.h"
 #include "common/http/headers.h"
 
@@ -18,10 +17,10 @@
 #include "test/mocks/tracing/mocks.h"
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::InSequence;
@@ -36,10 +35,11 @@ namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace RateLimitFilter {
+namespace {
 
-class HttpRateLimitFilterTest : public TestBase {
+class HttpRateLimitFilterTest : public testing::Test {
 public:
-  HttpRateLimitFilterTest() {
+  HttpRateLimitFilterTest() : http_context_(stats_store_.symbolTable()) {
     ON_CALL(runtime_.snapshot_, featureEnabled("ratelimit.http_filter_enabled", 100))
         .WillByDefault(Return(true));
     ON_CALL(runtime_.snapshot_, featureEnabled("ratelimit.http_filter_enforcing", 100))
@@ -50,7 +50,7 @@ public:
 
   void SetUpTest(const std::string& yaml) {
     envoy::config::filter::http::rate_limit::v2::RateLimit proto_config{};
-    MessageUtil::loadFromYaml(yaml, proto_config);
+    TestUtility::loadFromYaml(yaml, proto_config);
 
     config_.reset(
         new FilterConfig(proto_config, local_info_, stats_store_, runtime_, http_context_));
@@ -76,16 +76,16 @@ public:
   domain: foo
   )EOF";
 
-  FilterConfigSharedPtr config_;
   Filters::Common::RateLimit::MockClient* client_;
-  std::unique_ptr<Filter> filter_;
   NiceMock<Http::MockStreamDecoderFilterCallbacks> filter_callbacks_;
   Filters::Common::RateLimit::RequestCallbacks* request_callbacks_{};
   Http::TestHeaderMapImpl request_headers_;
   Http::TestHeaderMapImpl response_headers_;
   Buffer::OwnedImpl data_;
   Buffer::OwnedImpl response_data_;
-  Stats::IsolatedStoreImpl stats_store_;
+  NiceMock<Stats::MockIsolatedStatsStore> stats_store_;
+  FilterConfigSharedPtr config_;
+  std::unique_ptr<Filter> filter_;
   NiceMock<Runtime::MockLoader> runtime_;
   NiceMock<Router::MockRateLimitPolicyEntry> route_rate_limit_;
   NiceMock<Router::MockRateLimitPolicyEntry> vh_rate_limit_;
@@ -93,20 +93,6 @@ public:
   NiceMock<LocalInfo::MockLocalInfo> local_info_;
   Http::ContextImpl http_context_;
 };
-
-TEST_F(HttpRateLimitFilterTest, BadConfig) {
-  const std::string filter_config = R"EOF(
-  {
-    "domain": "foo",
-    "route_key" : "my_route"
-  }
-  )EOF";
-
-  Json::ObjectSharedPtr json_config = Json::Factory::loadFromString(filter_config);
-  envoy::config::filter::http::rate_limit::v2::RateLimit proto_config{};
-  EXPECT_THROW(Config::FilterJson::translateHttpRateLimitFilter(*json_config, proto_config),
-               Json::Exception);
-}
 
 TEST_F(HttpRateLimitFilterTest, NoRoute) {
   SetUpTest(filter_config_);
@@ -212,6 +198,8 @@ TEST_F(HttpRateLimitFilterTest, OkResponse) {
   request_headers_.addCopy(Http::Headers::get().RequestId, "requestid");
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_->decodeHeaders(request_headers_, false));
+  Http::MetadataMap metadata_map{{"metadata", "metadata"}};
+  EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->decodeMetadata(metadata_map));
   EXPECT_EQ(Http::FilterDataStatus::StopIterationAndWatermark, filter_->decodeData(data_, false));
   EXPECT_EQ(Http::FilterTrailersStatus::StopIteration, filter_->decodeTrailers(request_headers_));
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
@@ -400,6 +388,7 @@ TEST_F(HttpRateLimitFilterTest, ErrorResponseWithFailureModeAllowOff) {
                     ->statsScope()
                     .counter("ratelimit.failure_mode_allowed")
                     .value());
+  EXPECT_EQ("rate_limiter_error", filter_callbacks_.details_);
 }
 
 TEST_F(HttpRateLimitFilterTest, LimitResponse) {
@@ -432,6 +421,7 @@ TEST_F(HttpRateLimitFilterTest, LimitResponse) {
             filter_callbacks_.clusterInfo()->statsScope().counter("ratelimit.over_limit").value());
   EXPECT_EQ(1U, filter_callbacks_.clusterInfo()->statsScope().counter("upstream_rq_4xx").value());
   EXPECT_EQ(1U, filter_callbacks_.clusterInfo()->statsScope().counter("upstream_rq_429").value());
+  EXPECT_EQ("request_rate_limited", filter_callbacks_.details_);
 }
 
 TEST_F(HttpRateLimitFilterTest, LimitResponseWithHeaders) {
@@ -769,6 +759,7 @@ TEST_F(HttpRateLimitFilterTest, DefaultConfigValueTest) {
   EXPECT_EQ(FilterRequestType::Both, config_->requestType());
 }
 
+} // namespace
 } // namespace RateLimitFilter
 } // namespace HttpFilters
 } // namespace Extensions

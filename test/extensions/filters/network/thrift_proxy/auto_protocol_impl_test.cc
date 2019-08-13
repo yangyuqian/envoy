@@ -10,10 +10,10 @@
 #include "test/extensions/filters/network/thrift_proxy/mocks.h"
 #include "test/extensions/filters/network/thrift_proxy/utility.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::NiceMock;
 using testing::Ref;
@@ -25,7 +25,7 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace ThriftProxy {
 
-class AutoProtocolTest : public TestBase {
+class AutoProtocolTest : public testing::Test {
 public:
   void resetMetadata() {
     metadata_.setMethodName("-");
@@ -56,7 +56,7 @@ public:
 
 TEST(ProtocolNames, FromType) {
   for (int i = 0; i <= static_cast<int>(ProtocolType::LastProtocolType); i++) {
-    ProtocolType type = static_cast<ProtocolType>(i);
+    auto type = static_cast<ProtocolType>(i);
     EXPECT_NE("", ProtocolNames::get().fromType(type));
   }
 }
@@ -158,7 +158,7 @@ TEST_F(AutoProtocolTest, ReadMessageBegin) {
 }
 
 TEST_F(AutoProtocolTest, ReadDelegation) {
-  NiceMock<MockProtocol>* proto = new NiceMock<MockProtocol>();
+  auto* proto = new NiceMock<MockProtocol>();
   AutoProtocolImpl auto_proto;
   auto_proto.setProtocol(ProtocolPtr{proto});
 
@@ -281,7 +281,7 @@ TEST_F(AutoProtocolTest, ReadDelegation) {
 }
 
 TEST_F(AutoProtocolTest, WriteDelegation) {
-  NiceMock<MockProtocol>* proto = new NiceMock<MockProtocol>();
+  auto* proto = new NiceMock<MockProtocol>();
   AutoProtocolImpl auto_proto;
   auto_proto.setProtocol(ProtocolPtr{proto});
 
@@ -369,7 +369,7 @@ TEST_F(AutoProtocolTest, WriteDelegation) {
 
 // Test that protocol-upgrade methods are delegated to the detected protocol.
 TEST_F(AutoProtocolTest, ProtocolUpgradeDelegation) {
-  NiceMock<MockProtocol>* proto = new NiceMock<MockProtocol>();
+  auto* proto = new NiceMock<MockProtocol>();
   AutoProtocolImpl auto_proto;
   auto_proto.setProtocol(ProtocolPtr{proto});
 
