@@ -5,14 +5,15 @@
 #include "common/network/cidr_range.h"
 #include "common/network/lc_trie.h"
 
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Network {
 namespace LcTrie {
 
-class LcTrieTest : public TestBase {
+class LcTrieTest : public testing::Test {
 public:
   void setup(const std::vector<std::vector<std::string>>& cidr_range_strings,
              bool exclusive = false, double fill_factor = 0, uint32_t root_branch_factor = 0) {
@@ -20,8 +21,8 @@ public:
     for (size_t i = 0; i < cidr_range_strings.size(); i++) {
       std::pair<std::string, std::vector<Address::CidrRange>> ip_tags;
       ip_tags.first = fmt::format("tag_{0}", i);
-      for (size_t j = 0; j < cidr_range_strings[i].size(); j++) {
-        ip_tags.second.push_back(Address::CidrRange::create(cidr_range_strings[i][j]));
+      for (const auto& j : cidr_range_strings[i]) {
+        ip_tags.second.push_back(Address::CidrRange::create(j));
       }
       output.push_back(ip_tags);
     }

@@ -1,5 +1,6 @@
 #include <string>
 
+#include "common/common/macros.h"
 #include "common/common/mutex_tracer_impl.h"
 #include "common/memory/stats.h"
 #include "common/stats/fake_symbol_table_impl.h"
@@ -7,10 +8,10 @@
 
 #include "test/common/stats/stat_test_utility.h"
 #include "test/test_common/logging.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "absl/synchronization/blocking_counter.h"
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Stats {
@@ -28,7 +29,7 @@ enum class SymbolTableType {
   Fake,
 };
 
-class StatNameTest : public TestBaseWithParam<SymbolTableType> {
+class StatNameTest : public testing::TestWithParam<SymbolTableType> {
 protected:
   StatNameTest() {
     switch (GetParam()) {
@@ -39,22 +40,23 @@ protected:
       break;
     }
     case SymbolTableType::Fake:
-      table_ = std::make_unique<FakeSymbolTableImpl>();
+      auto table = std::make_unique<FakeSymbolTableImpl>();
+      fake_symbol_table_ = table.get();
+      table_ = std::move(table);
       break;
     }
+    pool_ = std::make_unique<StatNamePool>(*table_);
   }
+
   ~StatNameTest() override { clearStorage(); }
 
   void clearStorage() {
-    for (auto& stat_name_storage : stat_name_storage_) {
-      stat_name_storage.free(*table_);
-    }
-    stat_name_storage_.clear();
+    pool_->clear();
     EXPECT_EQ(0, table_->numSymbols());
   }
 
   SymbolVec getSymbols(StatName stat_name) {
-    return SymbolEncoding::decodeSymbols(stat_name.data(), stat_name.dataSize());
+    return SymbolTableImpl::Encoding::decodeSymbols(stat_name.data(), stat_name.dataSize());
   }
   std::string decodeSymbolVec(const SymbolVec& symbol_vec) {
     return real_symbol_table_->decodeSymbolVec(symbol_vec);
@@ -64,21 +66,16 @@ protected:
     return table_->toString(makeStat(stat_name));
   }
 
-  StatNameStorage makeStatStorage(absl::string_view name) { return StatNameStorage(name, *table_); }
+  StatName makeStat(absl::string_view name) { return pool_->add(name); }
 
-  StatName makeStat(absl::string_view name) {
-    stat_name_storage_.emplace_back(makeStatStorage(name));
-    return stat_name_storage_.back().statName();
-  }
-
+  FakeSymbolTableImpl* fake_symbol_table_{nullptr};
   SymbolTableImpl* real_symbol_table_{nullptr};
   std::unique_ptr<SymbolTable> table_;
-
-  std::vector<StatNameStorage> stat_name_storage_;
+  std::unique_ptr<StatNamePool> pool_;
 };
 
-INSTANTIATE_TEST_CASE_P(StatNameTest, StatNameTest,
-                        testing::ValuesIn({SymbolTableType::Real, SymbolTableType::Fake}));
+INSTANTIATE_TEST_SUITE_P(StatNameTest, StatNameTest,
+                         testing::ValuesIn({SymbolTableType::Real, SymbolTableType::Fake}));
 
 TEST_P(StatNameTest, AllocFree) { encodeDecode("hello.world"); }
 
@@ -87,6 +84,12 @@ TEST_P(StatNameTest, TestArbitrarySymbolRoundtrip) {
   for (auto& stat_name : stat_names) {
     EXPECT_EQ(stat_name, encodeDecode(stat_name));
   }
+}
+
+TEST_P(StatNameTest, TestEmpty) {
+  EXPECT_TRUE(makeStat("").empty());
+  EXPECT_FALSE(makeStat("x").empty());
+  EXPECT_TRUE(StatName().empty());
 }
 
 TEST_P(StatNameTest, Test100KSymbolsRoundtrip) {
@@ -166,7 +169,7 @@ TEST_P(StatNameTest, TestSameValueOnPartialFree) {
   // This should hold true for components as well. Since "foo" persists even when "foo.bar" is
   // freed, we expect both instances of "foo" to have the same symbol.
   makeStat("foo");
-  StatNameStorage stat_foobar_1(makeStatStorage("foo.bar"));
+  StatNameStorage stat_foobar_1("foo.bar", *table_);
   SymbolVec stat_foobar_1_symbols = getSymbols(stat_foobar_1.statName());
   stat_foobar_1.free(*table_);
   StatName stat_foobar_2(makeStat("foo.bar"));
@@ -222,22 +225,26 @@ TEST_P(StatNameTest, TestShrinkingExpectation) {
   // ::size() is a public function, but should only be used for testing.
   size_t table_size_0 = table_->numSymbols();
 
-  StatNameStorage stat_a(makeStatStorage("a"));
+  auto make_stat_storage = [this](absl::string_view name) -> StatNameStorage {
+    return StatNameStorage(name, *table_);
+  };
+
+  StatNameStorage stat_a(make_stat_storage("a"));
   size_t table_size_1 = table_->numSymbols();
 
-  StatNameStorage stat_aa(makeStatStorage("a.a"));
+  StatNameStorage stat_aa(make_stat_storage("a.a"));
   EXPECT_EQ(table_size_1, table_->numSymbols());
 
-  StatNameStorage stat_ab(makeStatStorage("a.b"));
+  StatNameStorage stat_ab(make_stat_storage("a.b"));
   size_t table_size_2 = table_->numSymbols();
 
-  StatNameStorage stat_ac(makeStatStorage("a.c"));
+  StatNameStorage stat_ac(make_stat_storage("a.c"));
   size_t table_size_3 = table_->numSymbols();
 
-  StatNameStorage stat_acd(makeStatStorage("a.c.d"));
+  StatNameStorage stat_acd(make_stat_storage("a.c.d"));
   size_t table_size_4 = table_->numSymbols();
 
-  StatNameStorage stat_ace(makeStatStorage("a.c.e"));
+  StatNameStorage stat_ace(make_stat_storage("a.c.e"));
   size_t table_size_5 = table_->numSymbols();
   EXPECT_GE(table_size_5, table_size_4);
 
@@ -268,10 +275,10 @@ TEST_P(StatNameTest, TestShrinkingExpectation) {
 // you don't free all the StatNames you've allocated bytes for. StatNameList
 // provides this capability.
 TEST_P(StatNameTest, List) {
-  std::vector<absl::string_view> names{"hello.world", "goodbye.world"};
+  absl::string_view names[] = {"hello.world", "goodbye.world"};
   StatNameList name_list;
   EXPECT_FALSE(name_list.populated());
-  name_list.populate(names, *table_);
+  table_->populateList(names, ARRAY_SIZE(names), name_list);
   EXPECT_TRUE(name_list.populated());
 
   // First, decode only the first name.
@@ -312,10 +319,10 @@ TEST_P(StatNameTest, HashTable) {
 }
 
 TEST_P(StatNameTest, Sort) {
-  std::vector<StatName> names{makeStat("a.c"),   makeStat("a.b"), makeStat("d.e"),
-                              makeStat("d.a.a"), makeStat("d.a"), makeStat("a.c")};
-  const std::vector<StatName> sorted_names{makeStat("a.b"), makeStat("a.c"),   makeStat("a.c"),
-                                           makeStat("d.a"), makeStat("d.a.a"), makeStat("d.e")};
+  StatNameVec names{makeStat("a.c"),   makeStat("a.b"), makeStat("d.e"),
+                    makeStat("d.a.a"), makeStat("d.a"), makeStat("a.c")};
+  const StatNameVec sorted_names{makeStat("a.b"), makeStat("a.c"),   makeStat("a.c"),
+                                 makeStat("d.a"), makeStat("d.a.a"), makeStat("d.e")};
   EXPECT_NE(names, sorted_names);
   std::sort(names.begin(), names.end(), StatNameLessThan(*table_));
   EXPECT_EQ(names, sorted_names);
@@ -392,11 +399,11 @@ TEST_P(StatNameTest, RacingSymbolCreation) {
           // Block each thread on waking up a common condition variable,
           // so we make it likely to race on creation.
           creation.wait();
-          StatNameTempStorage initial(stat_name_string, *table_);
+          StatNameManagedStorage initial(stat_name_string, *table_);
           creates.DecrementCount();
 
           access.wait();
-          StatNameTempStorage second(stat_name_string, *table_);
+          StatNameManagedStorage second(stat_name_string, *table_);
           accesses.DecrementCount();
 
           wait.wait();
@@ -458,11 +465,11 @@ TEST_P(StatNameTest, MutexContentionOnExistingSymbols) {
           // Block each thread on waking up a common condition variable,
           // so we make it likely to race on creation.
           creation.wait();
-          StatNameTempStorage initial(stat_name_string, *table_);
+          StatNameManagedStorage initial(stat_name_string, *table_);
           creates.DecrementCount();
 
           access.wait();
-          StatNameTempStorage second(stat_name_string, *table_);
+          StatNameManagedStorage second(stat_name_string, *table_);
           accesses.DecrementCount();
 
           wait.wait();
@@ -503,24 +510,71 @@ TEST_P(StatNameTest, MutexContentionOnExistingSymbols) {
   }
 }
 
+TEST_P(StatNameTest, SharedStatNameStorageSetInsertAndFind) {
+  StatNameStorageSet set;
+  const int iters = 10;
+  for (int i = 0; i < iters; ++i) {
+    std::string foo = absl::StrCat("foo", i);
+    auto insertion = set.insert(StatNameStorage(foo, *table_));
+    StatNameManagedStorage temp_foo(foo, *table_);
+    auto found = set.find(temp_foo.statName());
+    EXPECT_EQ(found->statName().data(), insertion.first->statName().data());
+  }
+  StatNameManagedStorage bar("bar", *table_);
+  EXPECT_EQ(set.end(), set.find(bar.statName()));
+  EXPECT_EQ(iters, set.size());
+  set.free(*table_);
+}
+
+TEST_P(StatNameTest, SharedStatNameStorageSetSwap) {
+  StatNameStorageSet set1, set2;
+  set1.insert(StatNameStorage("foo", *table_));
+  EXPECT_EQ(1, set1.size());
+  EXPECT_EQ(0, set2.size());
+  set1.swap(set2);
+  EXPECT_EQ(0, set1.size());
+  EXPECT_EQ(1, set2.size());
+  set2.free(*table_);
+}
+
+TEST_P(StatNameTest, StatNameSet) {
+  StatNameSet set(*table_);
+
+  // Test that we get a consistent StatName object from a remembered name.
+  set.rememberBuiltin("remembered");
+  const Stats::StatName remembered = set.getStatName("remembered");
+  EXPECT_EQ("remembered", table_->toString(remembered));
+  EXPECT_EQ(remembered.data(), set.getStatName("remembered").data());
+
+  // Same test for a dynamically allocated name. The only difference between
+  // the behavior with a remembered vs dynamic name is that when looking
+  // up a remembered name, a mutex is not taken. But we have no easy way
+  // to test for that. So we'll at least cover the code.
+  const Stats::StatName dynamic = set.getStatName("dynamic");
+  EXPECT_EQ("dynamic", table_->toString(dynamic));
+  EXPECT_EQ(dynamic.data(), set.getStatName("dynamic").data());
+
+  // There's another corner case for the same "dynamic" name from a
+  // different set. Here we will get a different StatName object
+  // out of the second set, though it will share the same underlying
+  // symbol-table symbol.
+  StatNameSet set2(*table_);
+  const Stats::StatName dynamic2 = set2.getStatName("dynamic");
+  EXPECT_EQ("dynamic", table_->toString(dynamic2));
+  EXPECT_EQ(dynamic2.data(), set2.getStatName("dynamic").data());
+  EXPECT_NE(dynamic2.data(), dynamic.data());
+}
+
 // Tests the memory savings realized from using symbol tables with 1k
 // clusters. This test shows the memory drops from almost 8M to less than
 // 2M. Note that only SymbolTableImpl is tested for memory consumption,
 // and not FakeSymbolTableImpl.
 TEST(SymbolTableTest, Memory) {
-  if (!TestUtil::hasDeterministicMallocStats()) {
-    return;
-  }
-
   // Tests a stat-name allocation strategy.
   auto test_memory_usage = [](std::function<void(absl::string_view)> fn) -> size_t {
-    const size_t start_mem = Memory::Stats::totalCurrentlyAllocated();
+    TestUtil::MemoryTest memory_test;
     TestUtil::forEachSampleStat(1000, fn);
-    const size_t end_mem = Memory::Stats::totalCurrentlyAllocated();
-    if (end_mem != 0) { // See warning below for asan, tsan, and mac.
-      EXPECT_GT(end_mem, start_mem);
-    }
-    return end_mem - start_mem;
+    return memory_test.consumedBytes();
   };
 
   size_t string_mem_used, symbol_table_mem_used;
@@ -541,26 +595,13 @@ TEST(SymbolTableTest, Memory) {
     }
   }
 
-  // This test only works if Memory::Stats::totalCurrentlyAllocated() works, which
-  // appears not to be the case in some tests, including asan, tsan, and mac.
-  if (Memory::Stats::totalCurrentlyAllocated() == 0) {
-    ENVOY_LOG_MISC(info,
-                   "SymbolTableTest.Memory comparison skipped due to malloc-stats returning 0.");
-  } else {
-    // Make sure we don't regress. Data as of 2019/01/04:
-    //
-    // libstdc++:
-    // ----------
-    // string_mem_used:        7759488
-    // symbol_table_mem_used:  1744280 (4.45x)
-    //
-    // libc++:
-    // -------
-    // string_mem_used:        6710912
-    // symbol_table_mem_used:  1743512 (3.85x)
-    EXPECT_LT(symbol_table_mem_used, string_mem_used / 3);
-    EXPECT_LT(symbol_table_mem_used, 1750000);
-  }
+  // Make sure we don't regress. Data as of 2019/05/29:
+  //
+  // string_mem_used:        6710912 (libc++), 7759488 (libstdc++).
+  // symbol_table_mem_used:  1726056 (3.9x) -- does not seem to depend on STL sizes.
+  EXPECT_MEMORY_LE(string_mem_used, 7759488);
+  EXPECT_MEMORY_LE(symbol_table_mem_used, string_mem_used / 3);
+  EXPECT_MEMORY_EQ(symbol_table_mem_used, 1726056);
 }
 
 } // namespace Stats

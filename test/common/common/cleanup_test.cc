@@ -1,6 +1,6 @@
 #include "common/common/cleanup.h"
 
-#include "test/test_common/test_base.h"
+#include "gtest/gtest.h"
 
 namespace Envoy {
 
@@ -11,6 +11,41 @@ TEST(CleanupTest, ScopeExitCallback) {
     EXPECT_FALSE(callback_fired);
   }
   EXPECT_TRUE(callback_fired);
+}
+
+TEST(RaiiListElementTest, DeleteOnDestruction) {
+  std::list<int> l;
+
+  {
+    EXPECT_EQ(l.size(), 0);
+    RaiiListElement<int> rle(l, 1);
+    EXPECT_EQ(l.size(), 1);
+  }
+  EXPECT_EQ(l.size(), 0);
+}
+
+TEST(RaiiListElementTest, CancelDelete) {
+  std::list<int> l;
+
+  {
+    EXPECT_EQ(l.size(), 0);
+    RaiiListElement<int> rle(l, 1);
+    EXPECT_EQ(l.size(), 1);
+    rle.cancel();
+  }
+  EXPECT_EQ(l.size(), 1);
+}
+
+TEST(RaiiListElementTest, DeleteOnErase) {
+  std::list<int> l;
+
+  {
+    EXPECT_EQ(l.size(), 0);
+    RaiiListElement<int> rle(l, 1);
+    rle.erase();
+    EXPECT_EQ(l.size(), 0);
+  }
+  EXPECT_EQ(l.size(), 0);
 }
 
 } // namespace Envoy

@@ -10,9 +10,9 @@
 #include "common/network/utility.h"
 
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::Invoke;
@@ -30,22 +30,22 @@ MockListenerConfig::MockListenerConfig() {
   ON_CALL(*this, listenerScope()).WillByDefault(ReturnRef(scope_));
   ON_CALL(*this, name()).WillByDefault(ReturnRef(name_));
 }
-MockListenerConfig::~MockListenerConfig() {}
+MockListenerConfig::~MockListenerConfig() = default;
 
-MockActiveDnsQuery::MockActiveDnsQuery() {}
-MockActiveDnsQuery::~MockActiveDnsQuery() {}
+MockActiveDnsQuery::MockActiveDnsQuery() = default;
+MockActiveDnsQuery::~MockActiveDnsQuery() = default;
 
 MockDnsResolver::MockDnsResolver() {
   ON_CALL(*this, resolve(_, _, _)).WillByDefault(Return(&active_query_));
 }
 
-MockDnsResolver::~MockDnsResolver() {}
+MockDnsResolver::~MockDnsResolver() = default;
 
 MockAddressResolver::MockAddressResolver() {
   ON_CALL(*this, name()).WillByDefault(Return("envoy.mock.resolver"));
 }
 
-MockAddressResolver::~MockAddressResolver() {}
+MockAddressResolver::~MockAddressResolver() = default;
 
 MockReadFilterCallbacks::MockReadFilterCallbacks() {
   ON_CALL(*this, connection()).WillByDefault(ReturnRef(connection_));
@@ -53,7 +53,7 @@ MockReadFilterCallbacks::MockReadFilterCallbacks() {
   ON_CALL(*this, upstreamHost(_)).WillByDefault(SaveArg<0>(&host_));
 }
 
-MockReadFilterCallbacks::~MockReadFilterCallbacks() {}
+MockReadFilterCallbacks::~MockReadFilterCallbacks() = default;
 
 MockReadFilter::MockReadFilter() {
   ON_CALL(*this, onData(_, _)).WillByDefault(Return(FilterStatus::StopIteration));
@@ -62,52 +62,66 @@ MockReadFilter::MockReadFilter() {
           Invoke([this](ReadFilterCallbacks& callbacks) -> void { callbacks_ = &callbacks; }));
 }
 
-MockReadFilter::~MockReadFilter() {}
+MockReadFilter::~MockReadFilter() = default;
 
-MockWriteFilter::MockWriteFilter() {}
-MockWriteFilter::~MockWriteFilter() {}
+MockWriteFilterCallbacks::MockWriteFilterCallbacks() {
+  ON_CALL(*this, connection()).WillByDefault(ReturnRef(connection_));
+}
+
+MockWriteFilterCallbacks::~MockWriteFilterCallbacks() = default;
+
+MockWriteFilter::MockWriteFilter() {
+  EXPECT_CALL(*this, initializeWriteFilterCallbacks(_))
+      .WillOnce(Invoke(
+          [this](WriteFilterCallbacks& callbacks) -> void { write_callbacks_ = &callbacks; }));
+}
+MockWriteFilter::~MockWriteFilter() = default;
 
 MockFilter::MockFilter() {
   EXPECT_CALL(*this, initializeReadFilterCallbacks(_))
       .WillOnce(
           Invoke([this](ReadFilterCallbacks& callbacks) -> void { callbacks_ = &callbacks; }));
+  EXPECT_CALL(*this, initializeWriteFilterCallbacks(_))
+      .WillOnce(Invoke(
+          [this](WriteFilterCallbacks& callbacks) -> void { write_callbacks_ = &callbacks; }));
 }
 
-MockFilter::~MockFilter() {}
+MockFilter::~MockFilter() = default;
 
-MockListenerCallbacks::MockListenerCallbacks() {}
-MockListenerCallbacks::~MockListenerCallbacks() {}
+MockListenerCallbacks::MockListenerCallbacks() = default;
+MockListenerCallbacks::~MockListenerCallbacks() = default;
 
-MockUdpListenerCallbacks::MockUdpListenerCallbacks() {}
-MockUdpListenerCallbacks::~MockUdpListenerCallbacks() {}
+MockUdpListenerCallbacks::MockUdpListenerCallbacks() = default;
+MockUdpListenerCallbacks::~MockUdpListenerCallbacks() = default;
 
-MockDrainDecision::MockDrainDecision() {}
-MockDrainDecision::~MockDrainDecision() {}
+MockDrainDecision::MockDrainDecision() = default;
+MockDrainDecision::~MockDrainDecision() = default;
 
-MockListenerFilter::MockListenerFilter() {}
-MockListenerFilter::~MockListenerFilter() {}
+MockListenerFilter::MockListenerFilter() = default;
+MockListenerFilter::~MockListenerFilter() = default;
 
 MockListenerFilterCallbacks::MockListenerFilterCallbacks() {
   ON_CALL(*this, socket()).WillByDefault(ReturnRef(socket_));
 }
-MockListenerFilterCallbacks::~MockListenerFilterCallbacks() {}
+MockListenerFilterCallbacks::~MockListenerFilterCallbacks() = default;
 
-MockListenerFilterManager::MockListenerFilterManager() {}
-MockListenerFilterManager::~MockListenerFilterManager() {}
+MockListenerFilterManager::MockListenerFilterManager() = default;
+MockListenerFilterManager::~MockListenerFilterManager() = default;
 
-MockFilterChain::MockFilterChain() {}
-MockFilterChain::~MockFilterChain() {}
+MockFilterChain::MockFilterChain() = default;
+MockFilterChain::~MockFilterChain() = default;
 
-MockFilterChainManager::MockFilterChainManager() {}
-MockFilterChainManager::~MockFilterChainManager() {}
+MockFilterChainManager::MockFilterChainManager() = default;
+MockFilterChainManager::~MockFilterChainManager() = default;
 
 MockFilterChainFactory::MockFilterChainFactory() {
   ON_CALL(*this, createListenerFilterChain(_)).WillByDefault(Return(true));
+  ON_CALL(*this, createUdpListenerFilterChain(_, _)).WillByDefault(Return(true));
 }
-MockFilterChainFactory::~MockFilterChainFactory() {}
+MockFilterChainFactory::~MockFilterChainFactory() = default;
 
 MockListenSocket::MockListenSocket()
-    : io_handle_(std::make_unique<IoSocketHandle>()),
+    : io_handle_(std::make_unique<IoSocketHandleImpl>()),
       local_address_(new Address::Ipv4Instance(80)) {
   ON_CALL(*this, localAddress()).WillByDefault(ReturnRef(local_address_));
   ON_CALL(*this, options()).WillByDefault(ReturnRef(options_));
@@ -115,16 +129,15 @@ MockListenSocket::MockListenSocket()
   ON_CALL(testing::Const(*this), ioHandle()).WillByDefault(ReturnRef(*io_handle_));
 }
 
-MockListenSocket::~MockListenSocket() { io_handle_->close(); }
-
 MockSocketOption::MockSocketOption() {
   ON_CALL(*this, setOption(_, _)).WillByDefault(Return(true));
 }
 
-MockSocketOption::~MockSocketOption() {}
+MockSocketOption::~MockSocketOption() = default;
 
 MockConnectionSocket::MockConnectionSocket()
-    : io_handle_(std::make_unique<IoSocketHandle>()), local_address_(new Address::Ipv4Instance(80)),
+    : io_handle_(std::make_unique<IoSocketHandleImpl>()),
+      local_address_(new Address::Ipv4Instance(80)),
       remote_address_(new Address::Ipv4Instance(80)) {
   ON_CALL(*this, localAddress()).WillByDefault(ReturnRef(local_address_));
   ON_CALL(*this, remoteAddress()).WillByDefault(ReturnRef(remote_address_));
@@ -132,32 +145,46 @@ MockConnectionSocket::MockConnectionSocket()
   ON_CALL(testing::Const(*this), ioHandle()).WillByDefault(ReturnRef(*io_handle_));
 }
 
-MockConnectionSocket::~MockConnectionSocket() { io_handle_->close(); }
-
-MockListener::MockListener() {}
+MockListener::MockListener() = default;
 MockListener::~MockListener() { onDestroy(); }
 
-MockConnectionHandler::MockConnectionHandler() {}
-MockConnectionHandler::~MockConnectionHandler() {}
+MockConnectionHandler::MockConnectionHandler() = default;
+MockConnectionHandler::~MockConnectionHandler() = default;
 
-MockIp::MockIp() {}
-MockIp::~MockIp() {}
+MockIp::MockIp() = default;
+MockIp::~MockIp() = default;
 
-MockResolvedAddress::~MockResolvedAddress() {}
+MockResolvedAddress::~MockResolvedAddress() = default;
 
 MockTransportSocket::MockTransportSocket() {
   ON_CALL(*this, setTransportSocketCallbacks(_))
       .WillByDefault(Invoke([&](TransportSocketCallbacks& callbacks) { callbacks_ = &callbacks; }));
 }
-MockTransportSocket::~MockTransportSocket() {}
+MockTransportSocket::~MockTransportSocket() = default;
 
-MockTransportSocketFactory::MockTransportSocketFactory() {}
-MockTransportSocketFactory::~MockTransportSocketFactory() {}
+MockTransportSocketFactory::MockTransportSocketFactory() = default;
+MockTransportSocketFactory::~MockTransportSocketFactory() = default;
 
 MockTransportSocketCallbacks::MockTransportSocketCallbacks() {
   ON_CALL(*this, connection()).WillByDefault(ReturnRef(connection_));
 }
-MockTransportSocketCallbacks::~MockTransportSocketCallbacks() {}
+MockTransportSocketCallbacks::~MockTransportSocketCallbacks() = default;
+
+MockUdpListener::MockUdpListener() = default;
+MockUdpListener::~MockUdpListener() { onDestroy(); }
+
+MockUdpReadFilterCallbacks::MockUdpReadFilterCallbacks() {
+  ON_CALL(*this, udpListener()).WillByDefault(ReturnRef(udp_listener_));
+}
+
+MockUdpReadFilterCallbacks::~MockUdpReadFilterCallbacks() = default;
+
+MockUdpListenerReadFilter::MockUdpListenerReadFilter(UdpReadFilterCallbacks& callbacks)
+    : UdpListenerReadFilter(callbacks) {}
+MockUdpListenerReadFilter::~MockUdpListenerReadFilter() = default;
+
+MockUdpListenerFilterManager::MockUdpListenerFilterManager() = default;
+MockUdpListenerFilterManager::~MockUdpListenerFilterManager() = default;
 
 } // namespace Network
 } // namespace Envoy

@@ -10,10 +10,10 @@
 #include "test/mocks/runtime/mocks.h"
 #include "test/mocks/stats/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -25,27 +25,29 @@ namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace Dynamo {
+namespace {
 
-class DynamoFilterTest : public TestBase {
+class DynamoFilterTest : public testing::Test {
 public:
   void setup(bool enabled) {
     ON_CALL(loader_.snapshot_, featureEnabled("dynamodb.filter_enabled", 100))
         .WillByDefault(Return(enabled));
     EXPECT_CALL(loader_.snapshot_, featureEnabled("dynamodb.filter_enabled", 100));
 
-    filter_ = std::make_unique<DynamoFilter>(loader_, stat_prefix_, stats_,
-                                             decoder_callbacks_.dispatcher().timeSystem());
+    auto stats = std::make_shared<DynamoStats>(stats_, "prefix.");
+    filter_ = std::make_unique<DynamoFilter>(loader_, stats,
+                                             decoder_callbacks_.dispatcher().timeSource());
 
     filter_->setDecoderFilterCallbacks(decoder_callbacks_);
     filter_->setEncoderFilterCallbacks(encoder_callbacks_);
   }
 
-  ~DynamoFilterTest() { filter_->onDestroy(); }
+  ~DynamoFilterTest() override { filter_->onDestroy(); }
 
+  NiceMock<Stats::MockStore> stats_;
   std::unique_ptr<DynamoFilter> filter_;
   NiceMock<Runtime::MockLoader> loader_;
   std::string stat_prefix_{"prefix."};
-  NiceMock<Stats::MockStore> stats_;
   NiceMock<Http::MockStreamDecoderFilterCallbacks> decoder_callbacks_;
   NiceMock<Http::MockStreamEncoderFilterCallbacks> encoder_callbacks_;
 };
@@ -57,13 +59,13 @@ TEST_F(DynamoFilterTest, operatorPresent) {
 
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_->decodeHeaders(request_headers, true));
+  Http::MetadataMap metadata_map{{"metadata", "metadata"}};
+  EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->decodeMetadata(metadata_map));
+  EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->encodeMetadata(metadata_map));
 
   Http::TestHeaderMapImpl continue_headers{{":status", "100"}};
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
             filter_->encode100ContinueHeaders(continue_headers));
-
-  Http::MetadataMap metadata_map{{"metadata", "metadata"}};
-  EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->encodeMetadata(metadata_map));
 
   Http::TestHeaderMapImpl response_headers{{":status", "200"}};
   EXPECT_CALL(stats_, counter("prefix.dynamodb.operation_missing")).Times(0);
@@ -795,6 +797,7 @@ TEST_F(DynamoFilterTest, PartitionIdStatsForSingleTableBatchOperation) {
   EXPECT_EQ(Http::FilterDataStatus::Continue, filter_->encodeData(empty_data, true));
 }
 
+} // namespace
 } // namespace Dynamo
 } // namespace HttpFilters
 } // namespace Extensions

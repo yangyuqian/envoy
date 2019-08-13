@@ -11,10 +11,10 @@
 #include "test/mocks/http/mocks.h"
 #include "test/mocks/runtime/mocks.h"
 #include "test/mocks/stats/mocks.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::Return;
@@ -24,8 +24,9 @@ namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace IpTagging {
+namespace {
 
-class IpTaggingFilterTest : public TestBase {
+class IpTaggingFilterTest : public testing::Test {
 public:
   IpTaggingFilterTest() {
     ON_CALL(runtime_.snapshot_, featureEnabled("ip_tagging.http_filter_enabled", 100))
@@ -43,13 +44,13 @@ ip_tags:
 
   void initializeFilter(const std::string& yaml) {
     envoy::config::filter::http::ip_tagging::v2::IPTagging config;
-    MessageUtil::loadFromYaml(yaml, config);
+    TestUtility::loadFromYaml(yaml, config);
     config_.reset(new IpTaggingFilterConfig(config, "prefix.", stats_, runtime_));
     filter_ = std::make_unique<IpTaggingFilter>(config_);
     filter_->setDecoderFilterCallbacks(filter_callbacks_);
   }
 
-  ~IpTaggingFilterTest() { filter_->onDestroy(); }
+  ~IpTaggingFilterTest() override { filter_->onDestroy(); }
 
   IpTaggingFilterConfigSharedPtr config_;
   std::unique_ptr<IpTaggingFilter> filter_;
@@ -280,6 +281,7 @@ TEST_F(IpTaggingFilterTest, ClearRouteCache) {
   EXPECT_FALSE(request_headers.has(Http::Headers::get().EnvoyIpTags));
 }
 
+} // namespace
 } // namespace IpTagging
 } // namespace HttpFilters
 } // namespace Extensions

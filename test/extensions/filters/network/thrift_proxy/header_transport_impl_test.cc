@@ -8,10 +8,10 @@
 #include "test/extensions/filters/network/thrift_proxy/utility.h"
 #include "test/mocks/buffer/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::NiceMock;
 using testing::Return;
@@ -20,13 +20,12 @@ namespace Envoy {
 namespace Extensions {
 namespace NetworkFilters {
 namespace ThriftProxy {
-
 namespace {
 
 class MockBuffer : public Envoy::MockBuffer {
 public:
-  MockBuffer() {}
-  ~MockBuffer() {}
+  MockBuffer() = default;
+  ~MockBuffer() override = default;
 
   MOCK_CONST_METHOD0(length, uint64_t());
 };

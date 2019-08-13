@@ -21,13 +21,14 @@
 #include "test/mocks/tracing/mocks.h"
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::AtLeast;
+using testing::Eq;
 using testing::Invoke;
 using testing::NiceMock;
 using testing::Return;
@@ -37,8 +38,9 @@ namespace Envoy {
 namespace Extensions {
 namespace Tracers {
 namespace Datadog {
+namespace {
 
-class DatadogDriverTest : public TestBase {
+class DatadogDriverTest : public testing::Test {
 public:
   void setup(envoy::config::trace::v2::DatadogConfig& datadog_config, bool init_timer) {
     ON_CALL(cm_, httpAsyncClientForCluster("fake_cluster"))
@@ -53,7 +55,7 @@ public:
   }
 
   void setupValidDriver() {
-    EXPECT_CALL(cm_, get("fake_cluster")).WillRepeatedly(Return(&cm_.thread_local_cluster_));
+    EXPECT_CALL(cm_, get(Eq("fake_cluster"))).WillRepeatedly(Return(&cm_.thread_local_cluster_));
     ON_CALL(*cm_.thread_local_cluster_.cluster_.info_, features())
         .WillByDefault(Return(Upstream::ClusterInfo::Features::HTTP2));
 
@@ -61,7 +63,7 @@ public:
     collector_cluster: fake_cluster
     )EOF";
     envoy::config::trace::v2::DatadogConfig datadog_config;
-    MessageUtil::loadFromYaml(yaml_string, datadog_config);
+    TestUtility::loadFromYaml(yaml_string, datadog_config);
 
     setup(datadog_config, true);
   }
@@ -93,19 +95,19 @@ TEST_F(DatadogDriverTest, InitializeDriver) {
 
   {
     // Valid config but not valid cluster.
-    EXPECT_CALL(cm_, get("fake_cluster")).WillOnce(Return(nullptr));
+    EXPECT_CALL(cm_, get(Eq("fake_cluster"))).WillOnce(Return(nullptr));
 
     const std::string yaml_string = R"EOF(
     collector_cluster: fake_cluster
     )EOF";
     envoy::config::trace::v2::DatadogConfig datadog_config;
-    MessageUtil::loadFromYaml(yaml_string, datadog_config);
+    TestUtility::loadFromYaml(yaml_string, datadog_config);
 
     EXPECT_THROW(setup(datadog_config, false), EnvoyException);
   }
 
   {
-    EXPECT_CALL(cm_, get("fake_cluster")).WillRepeatedly(Return(&cm_.thread_local_cluster_));
+    EXPECT_CALL(cm_, get(Eq("fake_cluster"))).WillRepeatedly(Return(&cm_.thread_local_cluster_));
     ON_CALL(*cm_.thread_local_cluster_.cluster_.info_, features())
         .WillByDefault(Return(Upstream::ClusterInfo::Features::HTTP2));
 
@@ -113,7 +115,7 @@ TEST_F(DatadogDriverTest, InitializeDriver) {
     collector_cluster: fake_cluster
     )EOF";
     envoy::config::trace::v2::DatadogConfig datadog_config;
-    MessageUtil::loadFromYaml(yaml_string, datadog_config);
+    TestUtility::loadFromYaml(yaml_string, datadog_config);
 
     setup(datadog_config, true);
   }
@@ -132,8 +134,9 @@ TEST_F(DatadogDriverTest, FlushSpansTimer) {
                      const Http::AsyncClient::RequestOptions&) -> Http::AsyncClient::Request* {
             callback = &callbacks;
 
-            EXPECT_STREQ("fake_cluster", message->headers().Host()->value().c_str());
-            EXPECT_STREQ("application/msgpack", message->headers().ContentType()->value().c_str());
+            EXPECT_EQ("fake_cluster", message->headers().Host()->value().getStringView());
+            EXPECT_EQ("application/msgpack",
+                      message->headers().ContentType()->value().getStringView());
 
             return &request;
           }));
@@ -161,6 +164,7 @@ TEST_F(DatadogDriverTest, FlushSpansTimer) {
   EXPECT_EQ(0U, stats_.counter("tracing.datadog.reports_failed").value());
 }
 
+} // namespace
 } // namespace Datadog
 } // namespace Tracers
 } // namespace Extensions

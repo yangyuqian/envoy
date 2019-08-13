@@ -5,7 +5,8 @@
 #include "test/extensions/filters/network/thrift_proxy/integration.h"
 #include "test/extensions/filters/network/thrift_proxy/utility.h"
 #include "test/test_common/network_utility.h"
-#include "test/test_common/test_base.h"
+
+#include "gtest/gtest.h"
 
 using testing::Combine;
 using ::testing::TestParamInfo;
@@ -17,7 +18,7 @@ namespace NetworkFilters {
 namespace ThriftProxy {
 
 class ThriftTranslationIntegrationTest
-    : public TestBaseWithParam<
+    : public testing::TestWithParam<
           std::tuple<TransportType, ProtocolType, TransportType, ProtocolType>>,
       public BaseThriftIntegrationTest {
 public:
@@ -52,7 +53,7 @@ public:
     proto_opts.set_protocol(upstream_protocol_proto);
 
     ProtobufWkt::Struct struct_opts;
-    MessageUtil::jsonConvert(proto_opts, struct_opts);
+    TestUtility::jsonConvert(proto_opts, struct_opts);
 
     config_helper_.addConfigModifier([&](envoy::config::bootstrap::v2::Bootstrap& bootstrap) {
       auto* opts = bootstrap.mutable_static_resources()

@@ -10,13 +10,14 @@
 #include "test/mocks/server/mocks.h"
 #include "test/mocks/upstream/cluster_info.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::DoAll;
+using testing::Eq;
 using testing::Invoke;
 using testing::NiceMock;
 using testing::Return;
@@ -27,8 +28,9 @@ namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace HealthCheck {
+namespace {
 
-class HealthCheckFilterTest : public TestBase {
+class HealthCheckFilterTest : public testing::Test {
 public:
   HealthCheckFilterTest(bool pass_through, bool caching)
       : request_headers_{{":path", "/healthcheck"}}, request_headers_no_hc_{{":path", "/foo"}} {
@@ -67,9 +69,11 @@ public:
 
   class MockHealthCheckCluster : public NiceMock<Upstream::MockThreadLocalCluster> {
   public:
-    MockHealthCheckCluster(uint64_t membership_total, uint64_t membership_healthy) {
+    MockHealthCheckCluster(uint64_t membership_total, uint64_t membership_healthy,
+                           uint64_t membership_degraded = 0) {
       info()->stats().membership_total_.set(membership_total);
       info()->stats().membership_healthy_.set(membership_healthy);
+      info()->stats().membership_degraded_.set(membership_degraded);
     }
   };
 };
@@ -95,6 +99,8 @@ TEST_F(HealthCheckFilterNoPassThroughTest, OkOrFailed) {
   EXPECT_CALL(callbacks_.active_span_, setSampled(false));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_->decodeHeaders(request_headers_, false));
+  Http::MetadataMap metadata_map{{"metadata", "metadata"}};
+  EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->decodeMetadata(metadata_map));
 }
 
 TEST_F(HealthCheckFilterNoPassThroughTest, NotHcRequest) {
@@ -108,7 +114,7 @@ TEST_F(HealthCheckFilterNoPassThroughTest, NotHcRequest) {
   Buffer::OwnedImpl body;
   EXPECT_EQ(Http::FilterDataStatus::Continue, filter_->encodeData(body, false));
   EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_->encodeTrailers(service_response));
-  EXPECT_STREQ("true", service_response.EnvoyImmediateHealthCheckFail()->value().c_str());
+  EXPECT_EQ("true", service_response.EnvoyImmediateHealthCheckFail()->value().getStringView());
 }
 
 TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
@@ -120,6 +126,7 @@ TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
     EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
     EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
               filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_ok", callbacks_.details_);
   }
   {
     Http::TestHeaderMapImpl health_check_response{{":status", "503"}};
@@ -127,6 +134,7 @@ TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
     EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
     EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
               filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_failed", callbacks_.details_);
   }
 
   // Test non-pass-through health checks with upstream cluster minimum health specified.
@@ -140,11 +148,12 @@ TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
     MockHealthCheckCluster cluster_www2(1000, 800);
     EXPECT_CALL(context_, healthCheckFailed()).WillOnce(Return(false));
     EXPECT_CALL(context_, clusterManager());
-    EXPECT_CALL(context_.cluster_manager_, get("www1")).WillRepeatedly(Return(&cluster_www1));
-    EXPECT_CALL(context_.cluster_manager_, get("www2")).WillRepeatedly(Return(&cluster_www2));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www1"))).WillRepeatedly(Return(&cluster_www1));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www2"))).WillRepeatedly(Return(&cluster_www2));
     EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
     EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
               filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_ok_cluster_healthy", callbacks_.details_);
   }
   {
     // This should fail, because one upstream cluster has too few healthy servers.
@@ -153,11 +162,12 @@ TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
     MockHealthCheckCluster cluster_www2(1000, 800);
     EXPECT_CALL(context_, healthCheckFailed()).WillOnce(Return(false));
     EXPECT_CALL(context_, clusterManager());
-    EXPECT_CALL(context_.cluster_manager_, get("www1")).WillRepeatedly(Return(&cluster_www1));
-    EXPECT_CALL(context_.cluster_manager_, get("www2")).WillRepeatedly(Return(&cluster_www2));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www1"))).WillRepeatedly(Return(&cluster_www1));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www2"))).WillRepeatedly(Return(&cluster_www2));
     EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
     EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
               filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_failed_cluster_unhealthy", callbacks_.details_);
   }
   {
     // This should fail, because one upstream cluster has no servers at all.
@@ -166,11 +176,12 @@ TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
     MockHealthCheckCluster cluster_www2(1000, 800);
     EXPECT_CALL(context_, healthCheckFailed()).WillOnce(Return(false));
     EXPECT_CALL(context_, clusterManager());
-    EXPECT_CALL(context_.cluster_manager_, get("www1")).WillRepeatedly(Return(&cluster_www1));
-    EXPECT_CALL(context_.cluster_manager_, get("www2")).WillRepeatedly(Return(&cluster_www2));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www1"))).WillRepeatedly(Return(&cluster_www1));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www2"))).WillRepeatedly(Return(&cluster_www2));
     EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
     EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
               filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_failed_cluster_empty", callbacks_.details_);
   }
   // Test the cases where an upstream cluster is empty, or has no healthy servers, but
   // the minimum required percent healthy is zero. The health check should return a 200.
@@ -182,11 +193,27 @@ TEST_F(HealthCheckFilterNoPassThroughTest, ComputedHealth) {
     MockHealthCheckCluster cluster_www2(1000, 0);
     EXPECT_CALL(context_, healthCheckFailed()).WillOnce(Return(false));
     EXPECT_CALL(context_, clusterManager());
-    EXPECT_CALL(context_.cluster_manager_, get("www1")).WillRepeatedly(Return(&cluster_www1));
-    EXPECT_CALL(context_.cluster_manager_, get("www2")).WillRepeatedly(Return(&cluster_www2));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www1"))).WillRepeatedly(Return(&cluster_www1));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www2"))).WillRepeatedly(Return(&cluster_www2));
     EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
     EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
               filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_ok_cluster_healthy", callbacks_.details_);
+  }
+  {
+    // This should succeed, because each cluster has degraded + healthy hosts greater than the
+    // threshold.
+    Http::TestHeaderMapImpl health_check_response{{":status", "200"}};
+    MockHealthCheckCluster cluster_www1(100, 40, 20);
+    MockHealthCheckCluster cluster_www2(1000, 0, 800);
+    EXPECT_CALL(context_, healthCheckFailed()).WillOnce(Return(false));
+    EXPECT_CALL(context_, clusterManager());
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www1"))).WillRepeatedly(Return(&cluster_www1));
+    EXPECT_CALL(context_.cluster_manager_, get(Eq("www2"))).WillRepeatedly(Return(&cluster_www2));
+    EXPECT_CALL(callbacks_, encodeHeaders_(HeaderMapEqualRef(&health_check_response), true));
+    EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
+              filter_->decodeHeaders(request_headers_, true));
+    EXPECT_EQ("health_check_ok_cluster_healthy", callbacks_.details_);
   }
 }
 
@@ -199,7 +226,8 @@ TEST_F(HealthCheckFilterNoPassThroughTest, HealthCheckFailedCallbackCalled) {
       .Times(1)
       .WillRepeatedly(Invoke([&](Http::HeaderMap& headers, bool end_stream) {
         filter_->encodeHeaders(headers, end_stream);
-        EXPECT_STREQ("cluster_name", headers.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+        EXPECT_EQ("cluster_name",
+                  headers.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
         EXPECT_EQ(nullptr, headers.EnvoyImmediateHealthCheckFail());
       }));
 
@@ -223,8 +251,8 @@ TEST_F(HealthCheckFilterPassThroughTest, Ok) {
 
   Http::TestHeaderMapImpl service_hc_respnose{{":status", "200"}};
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->encodeHeaders(service_hc_respnose, true));
-  EXPECT_STREQ("cluster_name",
-               service_hc_respnose.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+  EXPECT_EQ("cluster_name",
+            service_hc_respnose.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
 }
 
 TEST_F(HealthCheckFilterPassThroughTest, OkWithContinue) {
@@ -236,15 +264,15 @@ TEST_F(HealthCheckFilterPassThroughTest, OkWithContinue) {
 
   // Goodness only knows why there would be a 100-Continue response in health
   // checks but we can still verify Envoy handles it.
-  Http::TestHeaderMapImpl continue_respnose{{":status", "100"}};
+  Http::TestHeaderMapImpl continue_response{{":status", "100"}};
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
-            filter_->encode100ContinueHeaders(continue_respnose));
+            filter_->encode100ContinueHeaders(continue_response));
   Http::MetadataMap metadata_map{{"metadata", "metadata"}};
   EXPECT_EQ(Http::FilterMetadataStatus::Continue, filter_->encodeMetadata(metadata_map));
   Http::TestHeaderMapImpl service_hc_respnose{{":status", "200"}};
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->encodeHeaders(service_hc_respnose, true));
-  EXPECT_STREQ("cluster_name",
-               service_hc_respnose.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+  EXPECT_EQ("cluster_name",
+            service_hc_respnose.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
 }
 
 TEST_F(HealthCheckFilterPassThroughTest, Failed) {
@@ -273,7 +301,8 @@ TEST_F(HealthCheckFilterCachingTest, CachedServiceUnavailableCallbackCalled) {
       .Times(1)
       .WillRepeatedly(Invoke([&](Http::HeaderMap& headers, bool end_stream) {
         filter_->encodeHeaders(headers, end_stream);
-        EXPECT_STREQ("cluster_name", headers.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+        EXPECT_EQ("cluster_name",
+                  headers.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
       }));
 
   EXPECT_CALL(callbacks_.stream_info_,
@@ -294,11 +323,13 @@ TEST_F(HealthCheckFilterCachingTest, CachedOkCallbackNotCalled) {
       .Times(1)
       .WillRepeatedly(Invoke([&](Http::HeaderMap& headers, bool end_stream) {
         filter_->encodeHeaders(headers, end_stream);
-        EXPECT_STREQ("cluster_name", headers.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+        EXPECT_EQ("cluster_name",
+                  headers.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
       }));
 
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_->decodeHeaders(request_headers_, true));
+  EXPECT_EQ("health_check_cached", callbacks_.details_);
 }
 
 TEST_F(HealthCheckFilterCachingTest, All) {
@@ -321,7 +352,8 @@ TEST_F(HealthCheckFilterCachingTest, All) {
       .Times(1)
       .WillRepeatedly(Invoke([&](Http::HeaderMap& headers, bool end_stream) {
         filter_->encodeHeaders(headers, end_stream);
-        EXPECT_STREQ("cluster_name", headers.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+        EXPECT_EQ("cluster_name",
+                  headers.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_->decodeHeaders(request_headers_, true));
@@ -354,7 +386,8 @@ TEST_F(HealthCheckFilterCachingTest, DegradedHeader) {
       .Times(1)
       .WillRepeatedly(Invoke([&](Http::HeaderMap& headers, bool end_stream) {
         filter_->encodeHeaders(headers, end_stream);
-        EXPECT_STREQ("cluster_name", headers.EnvoyUpstreamHealthCheckedCluster()->value().c_str());
+        EXPECT_EQ("cluster_name",
+                  headers.EnvoyUpstreamHealthCheckedCluster()->value().getStringView());
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_->decodeHeaders(request_headers_, true));
@@ -373,6 +406,7 @@ TEST_F(HealthCheckFilterCachingTest, NotHcRequest) {
             filter_->decodeHeaders(request_headers_no_hc_, true));
 }
 
+} // namespace
 } // namespace HealthCheck
 } // namespace HttpFilters
 } // namespace Extensions

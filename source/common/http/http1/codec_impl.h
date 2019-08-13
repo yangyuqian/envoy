@@ -10,6 +10,7 @@
 
 #include "envoy/http/codec.h"
 #include "envoy/network/connection.h"
+#include "envoy/stats/scope.h"
 
 #include "common/buffer/watermark_buffer.h"
 #include "common/common/assert.h"
@@ -21,6 +22,21 @@
 namespace Envoy {
 namespace Http {
 namespace Http1 {
+
+/**
+ * All stats for the HTTP/1 codec. @see stats_macros.h
+ */
+// clang-format off
+#define ALL_HTTP1_CODEC_STATS(COUNTER)                                                             \
+  COUNTER(metadata_not_supported_error)                                                            \
+// clang-format on
+
+/**
+ * Wrapper struct for the HTTP/1 codec stats. @see stats_macros.h
+ */
+struct CodecStats {
+  ALL_HTTP1_CODEC_STATS(GENERATE_COUNTER_STRUCT)
+};
 
 class ConnectionImpl;
 
@@ -37,7 +53,7 @@ public:
   void encodeHeaders(const HeaderMap& headers, bool end_stream) override;
   void encodeData(Buffer::Instance& data, bool end_stream) override;
   void encodeTrailers(const HeaderMap& trailers) override;
-  void encodeMetadata(const MetadataMapVector&) override { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
+  void encodeMetadata(const MetadataMapVector&) override;
   Stream& getStream() override { return *this; }
 
   // Http::Stream
@@ -67,6 +83,13 @@ private:
    * @param value_size supplies the byte size of the value.
    */
   void encodeHeader(const char* key, uint32_t key_size, const char* value, uint32_t value_size);
+
+  /**
+   * Called to encode an individual header.
+   * @param key supplies the header to encode as a string_view.
+   * @param value supplies the value to encode as a string_view.
+   */
+  void encodeHeader(absl::string_view key, absl::string_view value);
 
   /**
    * Called to finalize a stream encode.
@@ -164,12 +187,16 @@ public:
 
   bool maybeDirectDispatch(Buffer::Instance& data);
 
+  CodecStats& stats() { return stats_; }
+
 protected:
-  ConnectionImpl(Network::Connection& connection, http_parser_type type);
+  ConnectionImpl(Network::Connection& connection, Stats::Scope& stats, http_parser_type type,
+                 uint32_t max_request_headers_kb);
 
   bool resetStreamCalled() { return reset_stream_called_; }
 
   Network::Connection& connection_;
+  CodecStats stats_;
   http_parser parser_;
   HeaderMapPtr deferred_end_stream_headers_;
   Http::Code error_code_{Http::Code::BadRequest};
@@ -273,6 +300,9 @@ private:
   Buffer::RawSlice reserved_iovec_;
   char* reserved_current_{};
   Protocol protocol_{Protocol::Http11};
+  const uint32_t max_request_headers_kb_;
+
+  bool strict_header_validation_;
 };
 
 /**
@@ -280,10 +310,15 @@ private:
  */
 class ServerConnectionImpl : public ServerConnection, public ConnectionImpl {
 public:
-  ServerConnectionImpl(Network::Connection& connection, ServerConnectionCallbacks& callbacks,
-                       Http1Settings settings);
+  ServerConnectionImpl(Network::Connection& connection, Stats::Scope& stats,
+                       ServerConnectionCallbacks& callbacks, Http1Settings settings,
+                       uint32_t max_request_headers_kb);
 
-  virtual bool supports_http_10() override { return codec_settings_.accept_http_10_; }
+  ServerConnectionImpl(Network::Connection& connection, ServerConnectionCallbacks& callbacks,
+                       Http1Settings settings, uint32_t max_request_headers_kb,
+                       bool strict_header_validation);
+
+  bool supports_http_10() override { return codec_settings_.accept_http_10_; }
 
 private:
   /**
@@ -331,7 +366,8 @@ private:
  */
 class ClientConnectionImpl : public ClientConnection, public ConnectionImpl {
 public:
-  ClientConnectionImpl(Network::Connection& connection, ConnectionCallbacks& callbacks);
+  ClientConnectionImpl(Network::Connection& connection, Stats::Scope& stats,
+                       ConnectionCallbacks& callbacks);
 
   // Http::ClientConnection
   StreamEncoder& newStream(StreamDecoder& response_decoder) override;
@@ -363,6 +399,9 @@ private:
   std::list<PendingResponse> pending_responses_;
   // Set true between receiving 100-Continue headers and receiving the spurious onMessageComplete.
   bool ignore_message_complete_for_100_continue_{};
+
+  // The default limit of 80 KiB is the vanilla http_parser behaviour.
+  static constexpr uint32_t MAX_RESPONSE_HEADERS_KB = 80;
 };
 
 } // namespace Http1

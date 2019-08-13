@@ -2,9 +2,9 @@
 #include "extensions/filters/http/rbac/config.h"
 
 #include "test/mocks/server/mocks.h"
-#include "test/test_common/test_base.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -16,7 +16,7 @@ namespace RBACFilter {
 namespace {
 
 TEST(RoleBasedAccessControlFilterConfigFactoryTest, ValidProto) {
-  envoy::config::rbac::v2alpha::Policy policy;
+  envoy::config::rbac::v2::Policy policy;
   policy.add_permissions()->set_any(true);
   policy.add_principals()->set_any(true);
   envoy::config::filter::http::rbac::v2::RBAC config;

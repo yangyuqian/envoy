@@ -25,9 +25,9 @@
 #include "test/mocks/tcp/mocks.h"
 #include "test/mocks/upstream/cluster_info.h"
 #include "test/mocks/upstream/load_balancer_context.h"
-#include "test/test_common/test_base.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::NiceMock;
 
@@ -38,7 +38,7 @@ class MockHostSet : public HostSet {
 public:
   MockHostSet(uint32_t priority = 0,
               uint32_t overprovisioning_factor = kDefaultOverProvisioningFactor);
-  ~MockHostSet();
+  ~MockHostSet() override;
 
   void runCallbacks(const HostVector added, const HostVector removed) {
     member_update_cb_helper_.runCallbacks(priority(), added, removed);
@@ -50,17 +50,24 @@ public:
 
   // Upstream::HostSet
   MOCK_CONST_METHOD0(hosts, const HostVector&());
+  MOCK_CONST_METHOD0(hostsPtr, HostVectorConstSharedPtr());
   MOCK_CONST_METHOD0(healthyHosts, const HostVector&());
+  MOCK_CONST_METHOD0(healthyHostsPtr, HealthyHostVectorConstSharedPtr());
   MOCK_CONST_METHOD0(degradedHosts, const HostVector&());
+  MOCK_CONST_METHOD0(degradedHostsPtr, DegradedHostVectorConstSharedPtr());
+  MOCK_CONST_METHOD0(excludedHosts, const HostVector&());
+  MOCK_CONST_METHOD0(excludedHostsPtr, ExcludedHostVectorConstSharedPtr());
   MOCK_CONST_METHOD0(hostsPerLocality, const HostsPerLocality&());
+  MOCK_CONST_METHOD0(hostsPerLocalityPtr, HostsPerLocalityConstSharedPtr());
   MOCK_CONST_METHOD0(healthyHostsPerLocality, const HostsPerLocality&());
+  MOCK_CONST_METHOD0(healthyHostsPerLocalityPtr, HostsPerLocalityConstSharedPtr());
   MOCK_CONST_METHOD0(degradedHostsPerLocality, const HostsPerLocality&());
+  MOCK_CONST_METHOD0(degradedHostsPerLocalityPtr, HostsPerLocalityConstSharedPtr());
+  MOCK_CONST_METHOD0(excludedHostsPerLocality, const HostsPerLocality&());
+  MOCK_CONST_METHOD0(excludedHostsPerLocalityPtr, HostsPerLocalityConstSharedPtr());
   MOCK_CONST_METHOD0(localityWeights, LocalityWeightsConstSharedPtr());
-  MOCK_METHOD0(chooseLocality, absl::optional<uint32_t>());
-  MOCK_METHOD5(updateHosts, void(HostSet::UpdateHostsParams&& update_hosts_params,
-                                 LocalityWeightsConstSharedPtr locality_weights,
-                                 const HostVector& hosts_added, const HostVector& hosts_removed,
-                                 absl::optional<uint32_t> overprovisioning_factor));
+  MOCK_METHOD0(chooseHealthyLocality, absl::optional<uint32_t>());
+  MOCK_METHOD0(chooseDegradedLocality, absl::optional<uint32_t>());
   MOCK_CONST_METHOD0(priority, uint32_t());
   uint32_t overprovisioningFactor() const override { return overprovisioning_factor_; }
   void setOverprovisioningFactor(const uint32_t overprovisioning_factor) {
@@ -70,9 +77,11 @@ public:
   HostVector hosts_;
   HostVector healthy_hosts_;
   HostVector degraded_hosts_;
+  HostVector excluded_hosts_;
   HostsPerLocalitySharedPtr hosts_per_locality_{new HostsPerLocalityImpl()};
   HostsPerLocalitySharedPtr healthy_hosts_per_locality_{new HostsPerLocalityImpl()};
   HostsPerLocalitySharedPtr degraded_hosts_per_locality_{new HostsPerLocalityImpl()};
+  HostsPerLocalitySharedPtr excluded_hosts_per_locality_{new HostsPerLocalityImpl()};
   LocalityWeightsConstSharedPtr locality_weights_{{}};
   Common::CallbackManager<uint32_t, const HostVector&, const HostVector&> member_update_cb_helper_;
   uint32_t priority_{};
@@ -83,7 +92,7 @@ public:
 class MockPrioritySet : public PrioritySet {
 public:
   MockPrioritySet();
-  ~MockPrioritySet();
+  ~MockPrioritySet() override;
 
   HostSet& getHostSet(uint32_t priority);
   void runUpdateCallbacks(uint32_t priority, const HostVector& hosts_added,
@@ -93,6 +102,11 @@ public:
   MOCK_CONST_METHOD1(addPriorityUpdateCb, Common::CallbackHandle*(PriorityUpdateCb callback));
   MOCK_CONST_METHOD0(hostSetsPerPriority, const std::vector<HostSetPtr>&());
   MOCK_METHOD0(hostSetsPerPriority, std::vector<HostSetPtr>&());
+  MOCK_METHOD6(updateHosts, void(uint32_t priority, UpdateHostsParams&& update_hosts_params,
+                                 LocalityWeightsConstSharedPtr locality_weights,
+                                 const HostVector& hosts_added, const HostVector& hosts_removed,
+                                 absl::optional<uint32_t> overprovisioning_factor));
+  MOCK_METHOD1(batchHostUpdate, void(BatchUpdateCb&));
 
   MockHostSet* getMockHostSet(uint32_t priority) {
     getHostSet(priority); // Ensure the host set exists.
@@ -111,10 +125,10 @@ public:
                     const DegradedLoad& degraded_priority_load)
       : priority_load_({healthy_priority_load, degraded_priority_load}) {}
   MockRetryPriority(const MockRetryPriority& other) : priority_load_(other.priority_load_) {}
-  ~MockRetryPriority();
+  ~MockRetryPriority() override;
 
   const HealthyAndDegradedLoad& determinePriorityLoad(const PrioritySet&,
-                                                      const HealthyAndDegradedLoad&) {
+                                                      const HealthyAndDegradedLoad&) override {
     return priority_load_;
   }
 
@@ -144,7 +158,7 @@ private:
 class MockCluster : public Cluster {
 public:
   MockCluster();
-  ~MockCluster();
+  ~MockCluster() override;
 
   // Upstream::Cluster
   MOCK_METHOD0(healthChecker, HealthChecker*());
@@ -154,19 +168,46 @@ public:
   MOCK_METHOD1(initialize, void(std::function<void()> callback));
   MOCK_CONST_METHOD0(initializePhase, InitializePhase());
   MOCK_CONST_METHOD0(sourceAddress, const Network::Address::InstanceConstSharedPtr&());
-  MOCK_METHOD0(prioritySet, MockPrioritySet&());
-  MOCK_CONST_METHOD0(prioritySet, const PrioritySet&());
 
   std::shared_ptr<MockClusterInfo> info_{new NiceMock<MockClusterInfo>()};
   std::function<void()> initialize_callback_;
   Network::Address::InstanceConstSharedPtr source_address_;
+};
+
+// Note that we could template the two implementations below, but to avoid having to define the
+// ctor/dtor (which is fairly expensive for mocks) in the header file we duplicate the code instead.
+
+// Use this when interaction with a real PrioritySet is needed, e.g. when update callbacks
+// needs to be triggered.
+class MockClusterRealPrioritySet : public MockCluster {
+public:
+  MockClusterRealPrioritySet();
+  ~MockClusterRealPrioritySet() override;
+
+  // Upstream::Cluster
+  PrioritySetImpl& prioritySet() override { return priority_set_; }
+  const PrioritySet& prioritySet() const override { return priority_set_; }
+
+  PrioritySetImpl priority_set_;
+};
+
+// Use this for additional convenience methods provided by MockPrioritySet.
+class MockClusterMockPrioritySet : public MockCluster {
+public:
+  MockClusterMockPrioritySet();
+  ~MockClusterMockPrioritySet() override;
+
+  // Upstream::Cluster
+  MockPrioritySet& prioritySet() override { return priority_set_; }
+  const PrioritySet& prioritySet() const override { return priority_set_; }
+
   NiceMock<MockPrioritySet> priority_set_;
 };
 
 class MockLoadBalancer : public LoadBalancer {
 public:
   MockLoadBalancer();
-  ~MockLoadBalancer();
+  ~MockLoadBalancer() override;
 
   // Upstream::LoadBalancer
   MOCK_METHOD1(chooseHost, HostConstSharedPtr(LoadBalancerContext* context));
@@ -174,24 +215,34 @@ public:
   std::shared_ptr<MockHost> host_{new MockHost()};
 };
 
+class MockThreadAwareLoadBalancer : public ThreadAwareLoadBalancer {
+public:
+  MockThreadAwareLoadBalancer();
+  ~MockThreadAwareLoadBalancer() override;
+
+  // Upstream::ThreadAwareLoadBalancer
+  MOCK_METHOD0(factory, LoadBalancerFactorySharedPtr());
+  MOCK_METHOD0(initialize, void());
+};
+
 class MockThreadLocalCluster : public ThreadLocalCluster {
 public:
   MockThreadLocalCluster();
-  ~MockThreadLocalCluster();
+  ~MockThreadLocalCluster() override;
 
   // Upstream::ThreadLocalCluster
   MOCK_METHOD0(prioritySet, const PrioritySet&());
   MOCK_METHOD0(info, ClusterInfoConstSharedPtr());
   MOCK_METHOD0(loadBalancer, LoadBalancer&());
 
-  NiceMock<MockCluster> cluster_;
+  NiceMock<MockClusterMockPrioritySet> cluster_;
   NiceMock<MockLoadBalancer> lb_;
 };
 
 class MockClusterManagerFactory : public ClusterManagerFactory {
 public:
   MockClusterManagerFactory();
-  ~MockClusterManagerFactory();
+  ~MockClusterManagerFactory() override;
 
   Secret::MockSecretManager& secretManager() override { return secret_manager_; };
 
@@ -210,9 +261,9 @@ public:
                                         Network::TransportSocketOptionsSharedPtr));
 
   MOCK_METHOD4(clusterFromProto,
-               ClusterSharedPtr(const envoy::api::v2::Cluster& cluster, ClusterManager& cm,
-                                Outlier::EventLoggerSharedPtr outlier_event_logger,
-                                bool added_via_api));
+               std::pair<ClusterSharedPtr, ThreadAwareLoadBalancerPtr>(
+                   const envoy::api::v2::Cluster& cluster, ClusterManager& cm,
+                   Outlier::EventLoggerSharedPtr outlier_event_logger, bool added_via_api));
 
   MOCK_METHOD2(createCds,
                CdsApiPtr(const envoy::api::v2::core::ConfigSource& cds_config, ClusterManager& cm));
@@ -224,14 +275,14 @@ private:
 class MockClusterUpdateCallbacksHandle : public ClusterUpdateCallbacksHandle {
 public:
   MockClusterUpdateCallbacksHandle();
-  ~MockClusterUpdateCallbacksHandle();
+  ~MockClusterUpdateCallbacksHandle() override;
 };
 
 class MockClusterManager : public ClusterManager {
 public:
   explicit MockClusterManager(TimeSource& time_source);
   MockClusterManager();
-  ~MockClusterManager();
+  ~MockClusterManager() override;
 
   ClusterUpdateCallbacksHandlePtr
   addThreadLocalClusterUpdateCallbacks(ClusterUpdateCallbacks& callbacks) override {
@@ -252,7 +303,7 @@ public:
                bool(const envoy::api::v2::Cluster& cluster, const std::string& version_info));
   MOCK_METHOD1(setInitializedCb, void(std::function<void()>));
   MOCK_METHOD0(clusters, ClusterInfoMap());
-  MOCK_METHOD1(get, ThreadLocalCluster*(const std::string& cluster));
+  MOCK_METHOD1(get, ThreadLocalCluster*(absl::string_view cluster));
   MOCK_METHOD4(httpConnPoolForCluster,
                Http::ConnectionPool::Instance*(const std::string& cluster,
                                                ResourcePriority priority, Http::Protocol protocol,
@@ -275,6 +326,8 @@ public:
   MOCK_CONST_METHOD0(localClusterName, const std::string&());
   MOCK_METHOD1(addThreadLocalClusterUpdateCallbacks_,
                ClusterUpdateCallbacksHandle*(ClusterUpdateCallbacks& callbacks));
+  MOCK_CONST_METHOD0(warmingClusterCount, std::size_t());
+  MOCK_METHOD0(subscriptionFactory, Config::SubscriptionFactory&());
 
   NiceMock<Http::ConnectionPool::MockInstance> conn_pool_;
   NiceMock<Http::MockAsyncClient> async_client_;
@@ -285,12 +338,13 @@ public:
   NiceMock<Grpc::MockAsyncClientManager> async_client_manager_;
   std::string local_cluster_name_;
   NiceMock<MockClusterManagerFactory> cluster_manager_factory_;
+  NiceMock<Config::MockSubscriptionFactory> subscription_factory_;
 };
 
 class MockHealthChecker : public HealthChecker {
 public:
   MockHealthChecker();
-  ~MockHealthChecker();
+  ~MockHealthChecker() override;
 
   MOCK_METHOD1(addHostCheckCompleteCb, void(HostStatusCb callback));
   MOCK_METHOD0(start, void());
@@ -323,7 +377,7 @@ public:
 class MockCdsApi : public CdsApi {
 public:
   MockCdsApi();
-  ~MockCdsApi();
+  ~MockCdsApi() override;
 
   MOCK_METHOD0(initialize, void());
   MOCK_METHOD1(setInitializedCb, void(std::function<void()> callback));
@@ -335,7 +389,7 @@ public:
 class MockClusterUpdateCallbacks : public ClusterUpdateCallbacks {
 public:
   MockClusterUpdateCallbacks();
-  ~MockClusterUpdateCallbacks();
+  ~MockClusterUpdateCallbacks() override;
 
   MOCK_METHOD1(onClusterAddOrUpdate, void(ThreadLocalCluster& cluster));
   MOCK_METHOD1(onClusterRemoval, void(const std::string& cluster_name));
@@ -344,7 +398,7 @@ public:
 class MockClusterInfoFactory : public ClusterInfoFactory, Logger::Loggable<Logger::Id::upstream> {
 public:
   MockClusterInfoFactory();
-  ~MockClusterInfoFactory();
+  ~MockClusterInfoFactory() override;
 
   MOCK_METHOD1(createClusterInfo, ClusterInfoConstSharedPtr(const CreateClusterInfoParams&));
 };
@@ -352,7 +406,7 @@ public:
 class MockRetryHostPredicate : public RetryHostPredicate {
 public:
   MockRetryHostPredicate();
-  ~MockRetryHostPredicate();
+  ~MockRetryHostPredicate() override;
 
   MOCK_METHOD1(shouldSelectAnotherHost, bool(const Host& candidate_host));
   MOCK_METHOD1(onHostAttempted, void(HostDescriptionConstSharedPtr));

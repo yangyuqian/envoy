@@ -18,13 +18,15 @@
 
 #include "test/test_common/environment.h"
 #include "test/test_common/network_utility.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Network {
 namespace Address {
 namespace {
+
 bool addressesEqual(const InstanceConstSharedPtr& a, const Instance& b) {
   if (a == nullptr || a->type() != Type::Ip || b.type() != Type::Ip) {
     return false;
@@ -53,8 +55,6 @@ void testSocketBindAndConnect(Network::Address::IpVersion ip_version, bool v6onl
   // Create a socket on which we'll listen for connections from clients.
   IoHandlePtr io_handle = addr_port->socket(SocketType::Stream);
   ASSERT_GE(io_handle->fd(), 0) << addr_port->asString();
-  ScopedFdCloser fd_closer1(io_handle->fd());
-  ScopedIoHandleCloser io_handle_closer1(io_handle);
 
   // Check that IPv6 sockets accept IPv6 connections only.
   if (addr_port->ip()->version() == IpVersion::v6) {
@@ -78,8 +78,6 @@ void testSocketBindAndConnect(Network::Address::IpVersion ip_version, bool v6onl
     // Create a client socket and connect to the server.
     IoHandlePtr client_handle = addr_port->socket(SocketType::Stream);
     ASSERT_GE(client_handle->fd(), 0) << addr_port->asString();
-    ScopedFdCloser fd_closer2(client_handle->fd());
-    ScopedIoHandleCloser io_handle_closer2(client_handle);
 
     // Instance::socket creates a non-blocking socket, which that extends all the way to the
     // operation of ::connect(), so connect returns with errno==EWOULDBLOCK before the tcp
@@ -106,7 +104,7 @@ void testSocketBindAndConnect(Network::Address::IpVersion ip_version, bool v6onl
 }
 } // namespace
 
-class AddressImplSocketTest : public TestBaseWithParam<IpVersion> {};
+class AddressImplSocketTest : public testing::TestWithParam<IpVersion> {};
 INSTANTIATE_TEST_SUITE_P(IpVersions, AddressImplSocketTest,
                          testing::ValuesIn(TestEnvironment::getIpVersionsForTest()),
                          TestUtility::ipTestParamsToString);
@@ -146,6 +144,7 @@ TEST(Ipv4InstanceTest, SocketAddress) {
 
   Ipv4Instance address(&addr4);
   EXPECT_EQ("1.2.3.4:6502", address.asString());
+  EXPECT_EQ("1.2.3.4:6502", address.asStringView());
   EXPECT_EQ("1.2.3.4:6502", address.logicalName());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("1.2.3.4", address.ip()->addressAsString());
@@ -159,6 +158,7 @@ TEST(Ipv4InstanceTest, SocketAddress) {
 TEST(Ipv4InstanceTest, AddressOnly) {
   Ipv4Instance address("3.4.5.6");
   EXPECT_EQ("3.4.5.6:0", address.asString());
+  EXPECT_EQ("3.4.5.6:0", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("3.4.5.6", address.ip()->addressAsString());
   EXPECT_EQ(0U, address.ip()->port());
@@ -170,6 +170,7 @@ TEST(Ipv4InstanceTest, AddressOnly) {
 TEST(Ipv4InstanceTest, AddressAndPort) {
   Ipv4Instance address("127.0.0.1", 80);
   EXPECT_EQ("127.0.0.1:80", address.asString());
+  EXPECT_EQ("127.0.0.1:80", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("127.0.0.1", address.ip()->addressAsString());
   EXPECT_FALSE(address.ip()->isAnyAddress());
@@ -182,6 +183,7 @@ TEST(Ipv4InstanceTest, AddressAndPort) {
 TEST(Ipv4InstanceTest, PortOnly) {
   Ipv4Instance address(443);
   EXPECT_EQ("0.0.0.0:443", address.asString());
+  EXPECT_EQ("0.0.0.0:443", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("0.0.0.0", address.ip()->addressAsString());
   EXPECT_TRUE(address.ip()->isAnyAddress());
@@ -194,6 +196,7 @@ TEST(Ipv4InstanceTest, PortOnly) {
 TEST(Ipv4InstanceTest, Multicast) {
   Ipv4Instance address("230.0.0.1");
   EXPECT_EQ("230.0.0.1:0", address.asString());
+  EXPECT_EQ("230.0.0.1:0", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("230.0.0.1", address.ip()->addressAsString());
   EXPECT_FALSE(address.ip()->isAnyAddress());
@@ -206,6 +209,7 @@ TEST(Ipv4InstanceTest, Multicast) {
 TEST(Ipv4InstanceTest, Broadcast) {
   Ipv4Instance address("255.255.255.255");
   EXPECT_EQ("255.255.255.255:0", address.asString());
+  EXPECT_EQ("255.255.255.255:0", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("255.255.255.255", address.ip()->addressAsString());
   EXPECT_EQ(0U, address.ip()->port());
@@ -227,6 +231,7 @@ TEST(Ipv6InstanceTest, SocketAddress) {
 
   Ipv6Instance address(addr6);
   EXPECT_EQ("[1:23::ef]:32000", address.asString());
+  EXPECT_EQ("[1:23::ef]:32000", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("1:23::ef", address.ip()->addressAsString());
   EXPECT_FALSE(address.ip()->isAnyAddress());
@@ -240,6 +245,7 @@ TEST(Ipv6InstanceTest, SocketAddress) {
 TEST(Ipv6InstanceTest, AddressOnly) {
   Ipv6Instance address("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
   EXPECT_EQ("[2001:db8:85a3::8a2e:370:7334]:0", address.asString());
+  EXPECT_EQ("[2001:db8:85a3::8a2e:370:7334]:0", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("2001:db8:85a3::8a2e:370:7334", address.ip()->addressAsString());
   EXPECT_EQ(0U, address.ip()->port());
@@ -252,6 +258,7 @@ TEST(Ipv6InstanceTest, AddressOnly) {
 TEST(Ipv6InstanceTest, AddressAndPort) {
   Ipv6Instance address("::0001", 80);
   EXPECT_EQ("[::1]:80", address.asString());
+  EXPECT_EQ("[::1]:80", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("::1", address.ip()->addressAsString());
   EXPECT_EQ(80U, address.ip()->port());
@@ -263,6 +270,7 @@ TEST(Ipv6InstanceTest, AddressAndPort) {
 TEST(Ipv6InstanceTest, PortOnly) {
   Ipv6Instance address(443);
   EXPECT_EQ("[::]:443", address.asString());
+  EXPECT_EQ("[::]:443", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("::", address.ip()->addressAsString());
   EXPECT_TRUE(address.ip()->isAnyAddress());
@@ -275,6 +283,7 @@ TEST(Ipv6InstanceTest, PortOnly) {
 TEST(Ipv6InstanceTest, Multicast) {
   Ipv6Instance address("FF00::");
   EXPECT_EQ("[ff00::]:0", address.asString());
+  EXPECT_EQ("[ff00::]:0", address.asStringView());
   EXPECT_EQ(Type::Ip, address.type());
   EXPECT_EQ("ff00::", address.ip()->addressAsString());
   EXPECT_FALSE(address.ip()->isAnyAddress());
@@ -313,6 +322,7 @@ TEST(PipeInstanceTest, AbstractNamespace) {
 #if defined(__linux__)
   PipeInstance address("@/foo");
   EXPECT_EQ("@/foo", address.asString());
+  EXPECT_EQ("@/foo", address.asStringView());
   EXPECT_EQ(Type::Pipe, address.type());
   EXPECT_EQ(nullptr, address.ip());
 #else
@@ -331,8 +341,6 @@ TEST(PipeInstanceTest, UnlinksExistingFile) {
     PipeInstance address(path);
     IoHandlePtr io_handle = address.socket(SocketType::Stream);
     ASSERT_GE(io_handle->fd(), 0) << address.asString();
-    ScopedFdCloser fd_closer(io_handle->fd());
-    ScopedIoHandleCloser io_handle_closer(io_handle);
 
     const Api::SysCallIntResult result = address.bind(io_handle->fd());
     ASSERT_EQ(result.rc_, 0) << address.asString() << "\nerror: " << strerror(result.errno_)
@@ -419,7 +427,7 @@ struct TestCase {
   TestCase() = default;
   TestCase(enum InstanceType type, const std::string& address, uint32_t port)
       : address_(address), type_(type), port_(port) {}
-  TestCase(const TestCase& rhs) : address_(rhs.address_), type_(rhs.type_), port_(rhs.port_) {}
+  TestCase(const TestCase& rhs) = default;
 
   bool operator==(const TestCase& rhs) {
     return (type_ == rhs.type_ && address_ == rhs.address_ && port_ == rhs.port_);
@@ -430,12 +438,12 @@ struct TestCase {
   uint32_t port_ = 0; // Ignored for Pipe
 };
 
-class MixedAddressTest : public TestBaseWithParam<::testing::tuple<TestCase, TestCase>> {
+class MixedAddressTest : public testing::TestWithParam<::testing::tuple<TestCase, TestCase>> {
 public:
 protected:
   InstanceConstSharedPtr testCaseToInstance(const struct TestCase& test_case) {
     // Catch default construction.
-    if (test_case.address_ == "") {
+    if (test_case.address_.empty()) {
       return nullptr;
     }
     switch (test_case.type_) {
@@ -455,7 +463,7 @@ protected:
 
 TEST_P(MixedAddressTest, Equality) {
   TestCase lhs_case = ::testing::get<0>(GetParam());
-  TestCase rhs_case = ::testing::get<1>(GetParam());
+  const TestCase& rhs_case = ::testing::get<1>(GetParam());
   InstanceConstSharedPtr lhs = testCaseToInstance(lhs_case);
   InstanceConstSharedPtr rhs = testCaseToInstance(rhs_case);
   if (lhs_case == rhs_case) {

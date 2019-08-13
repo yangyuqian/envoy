@@ -11,11 +11,13 @@
 #include "test/mocks/network/mocks.h"
 #include "test/test_common/environment.h"
 #include "test/test_common/network_utility.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace Network {
+namespace {
 
 TEST(NetworkUtility, Url) {
   EXPECT_EQ("foo", Utility::hostFromTcpUrl("tcp://foo:1234"));
@@ -27,6 +29,7 @@ TEST(NetworkUtility, Url) {
   EXPECT_THROW(Utility::hostFromTcpUrl("tcp://foo"), EnvoyException);
   EXPECT_THROW(Utility::portFromTcpUrl("tcp://foo"), EnvoyException);
   EXPECT_THROW(Utility::portFromTcpUrl("tcp://foo:bar"), EnvoyException);
+  EXPECT_THROW(Utility::portFromTcpUrl("tcp://https://foo:1234"), EnvoyException);
   EXPECT_THROW(Utility::hostFromTcpUrl(""), EnvoyException);
   EXPECT_THROW(Utility::portFromTcpUrl("tcp://foo:999999999999"), EnvoyException);
 }
@@ -38,6 +41,7 @@ TEST(NetworkUtility, udpUrl) {
   EXPECT_THROW(Utility::portFromUdpUrl("bogus://foo:1234"), EnvoyException);
   EXPECT_THROW(Utility::hostFromUdpUrl("tcp://foo"), EnvoyException);
   EXPECT_THROW(Utility::portFromUdpUrl("tcp://foo:1234"), EnvoyException);
+  EXPECT_THROW(Utility::portFromUdpUrl("udp://https://foo:1234"), EnvoyException);
   EXPECT_THROW(Utility::hostFromUdpUrl(""), EnvoyException);
   EXPECT_THROW(Utility::portFromUdpUrl("udp://foo:999999999999"), EnvoyException);
 }
@@ -153,7 +157,7 @@ TEST(NetworkUtility, ParseInternetAddressAndPort) {
   EXPECT_EQ("[::1]:0", Utility::parseInternetAddressAndPort("[::1]:0")->asString());
 }
 
-class NetworkUtilityGetLocalAddress : public TestBaseWithParam<Address::IpVersion> {};
+class NetworkUtilityGetLocalAddress : public testing::TestWithParam<Address::IpVersion> {};
 
 INSTANTIATE_TEST_SUITE_P(IpVersions, NetworkUtilityGetLocalAddress,
                          testing::ValuesIn(TestEnvironment::getIpVersionsForTest()),
@@ -458,5 +462,6 @@ TEST(AbslUint128, TestByteOrder) {
   }
 }
 
+} // namespace
 } // namespace Network
 } // namespace Envoy

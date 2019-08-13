@@ -1,11 +1,11 @@
 #include "extensions/filters/listener/proxy_protocol/proxy_protocol.h"
 
-#include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 
@@ -33,13 +33,13 @@ Network::FilterStatus Filter::onAccept(Network::ListenerFilterCallbacks& cb) {
   ENVOY_LOG(debug, "proxy_protocol: New connection accepted");
   Network::ConnectionSocket& socket = cb.socket();
   ASSERT(file_event_.get() == nullptr);
-  file_event_ =
-      cb.dispatcher().createFileEvent(socket.ioHandle().fd(),
-                                      [this](uint32_t events) {
-                                        ASSERT(events == Event::FileReadyType::Read);
-                                        onRead();
-                                      },
-                                      Event::FileTriggerType::Edge, Event::FileReadyType::Read);
+  file_event_ = cb.dispatcher().createFileEvent(
+      socket.ioHandle().fd(),
+      [this](uint32_t events) {
+        ASSERT(events == Event::FileReadyType::Read);
+        onRead();
+      },
+      Event::FileTriggerType::Edge, Event::FileReadyType::Read);
   cb_ = &cb;
   return Network::FilterStatus::StopIteration;
 }

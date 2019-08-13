@@ -3,10 +3,10 @@
 #include "extensions/filters/network/rbac/config.h"
 
 #include "test/mocks/server/mocks.h"
-#include "test/test_common/test_base.h"
 
 #include "fmt/printf.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -15,15 +15,15 @@ namespace Envoy {
 namespace Extensions {
 namespace NetworkFilters {
 namespace RBACFilter {
-
 namespace {
+
 const std::string header = R"EOF(
 { "header": {"name": "key", "exact_match": "value"} }
 )EOF";
 
 } // namespace
 
-class RoleBasedAccessControlNetworkFilterConfigFactoryTest : public TestBase {
+class RoleBasedAccessControlNetworkFilterConfigFactoryTest : public testing::Test {
 public:
   void validateRule(const std::string& policy_json) {
     checkRule(fmt::sprintf(policy_json, header));
@@ -31,8 +31,8 @@ public:
 
 private:
   void checkRule(const std::string& policy_json) {
-    envoy::config::rbac::v2alpha::Policy policy_proto{};
-    MessageUtil::loadFromJson(policy_json, policy_proto);
+    envoy::config::rbac::v2::Policy policy_proto{};
+    TestUtility::loadFromJson(policy_json, policy_proto);
 
     envoy::config::filter::network::rbac::v2::RBAC config{};
     config.set_stat_prefix("test");
@@ -49,7 +49,7 @@ private:
 };
 
 TEST_F(RoleBasedAccessControlNetworkFilterConfigFactoryTest, ValidProto) {
-  envoy::config::rbac::v2alpha::Policy policy;
+  envoy::config::rbac::v2::Policy policy;
   policy.add_permissions()->set_any(true);
   policy.add_principals()->set_any(true);
   envoy::config::filter::network::rbac::v2::RBAC config;

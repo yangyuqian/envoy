@@ -19,9 +19,9 @@
 #include "test/mocks/stats/mocks.h"
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using testing::_;
 using testing::Invoke;
@@ -34,10 +34,11 @@ namespace Envoy {
 namespace Http {
 namespace {
 
-class AsyncClientImplTest : public TestBase {
+class AsyncClientImplTest : public testing::Test {
 public:
   AsyncClientImplTest()
-      : client_(cm_.thread_local_cluster_.cluster_.info_, stats_store_, dispatcher_, local_info_,
+      : http_context_(stats_store_.symbolTable()),
+        client_(cm_.thread_local_cluster_.cluster_.info_, stats_store_, dispatcher_, local_info_,
                 cm_, runtime_, random_,
                 Router::ShadowWriterPtr{new NiceMock<Router::MockShadowWriter>()}, http_context_) {
     message_->headers().insertMethod().value(std::string("GET"));
@@ -57,11 +58,12 @@ public:
                              bool end_stream) {
     EXPECT_CALL(callbacks, onHeaders_(_, end_stream))
         .WillOnce(Invoke([code](HeaderMap& headers, bool) -> void {
-          EXPECT_EQ(std::to_string(code), headers.Status()->value().c_str());
+          EXPECT_EQ(std::to_string(code), headers.Status()->value().getStringView());
         }));
   }
 
   MessagePtr message_{new RequestMessageImpl()};
+  Stats::MockIsolatedStatsStore stats_store_;
   MockAsyncClientCallbacks callbacks_;
   MockAsyncClientStreamCallbacks stream_callbacks_;
   NiceMock<Upstream::MockClusterManager> cm_;
@@ -71,7 +73,6 @@ public:
   NiceMock<Event::MockDispatcher> dispatcher_;
   NiceMock<Runtime::MockLoader> runtime_;
   NiceMock<Runtime::MockRandomGenerator> random_;
-  Stats::IsolatedStoreImpl stats_store_;
   NiceMock<LocalInfo::MockLocalInfo> local_info_;
   Http::ContextImpl http_context_;
   AsyncClientImpl client_;
@@ -99,6 +100,7 @@ TEST_F(AsyncClientImplTest, BasicStream) {
 
   expectResponseHeaders(stream_callbacks_, 200, false);
   EXPECT_CALL(stream_callbacks_, onData(BufferEqual(body.get()), true));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   AsyncClient::Stream* stream = client_.start(stream_callbacks_, AsyncClient::StreamOptions());
   stream->sendHeaders(headers, false);
@@ -242,6 +244,7 @@ TEST_F(AsyncClientImplTest, RetryWithStream) {
 
   // Normal response.
   expectResponseHeaders(stream_callbacks_, 200, true);
+  EXPECT_CALL(stream_callbacks_, onComplete());
   HeaderMapPtr response_headers2(new TestHeaderMapImpl{{":status", "200"}});
   response_decoder_->decodeHeaders(std::move(response_headers2), true);
 }
@@ -264,6 +267,7 @@ TEST_F(AsyncClientImplTest, MultipleStreams) {
 
   expectResponseHeaders(stream_callbacks_, 200, false);
   EXPECT_CALL(stream_callbacks_, onData(BufferEqual(body.get()), true));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   AsyncClient::Stream* stream = client_.start(stream_callbacks_, AsyncClient::StreamOptions());
   stream->sendHeaders(headers, false);
@@ -288,6 +292,7 @@ TEST_F(AsyncClientImplTest, MultipleStreams) {
   EXPECT_CALL(stream_encoder2, encodeData(BufferEqual(body2.get()), true));
 
   expectResponseHeaders(stream_callbacks2, 503, true);
+  EXPECT_CALL(stream_callbacks2, onComplete());
 
   AsyncClient::Stream* stream2 = client_.start(stream_callbacks2, AsyncClient::StreamOptions());
   stream2->sendHeaders(headers2, false);
@@ -387,6 +392,7 @@ TEST_F(AsyncClientImplTest, StreamAndRequest) {
 
   expectResponseHeaders(stream_callbacks_, 200, false);
   EXPECT_CALL(stream_callbacks_, onData(BufferEqual(body.get()), true));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   AsyncClient::Stream* stream = client_.start(stream_callbacks_, AsyncClient::StreamOptions());
   stream->sendHeaders(headers, false);
@@ -426,6 +432,7 @@ TEST_F(AsyncClientImplTest, StreamWithTrailers) {
   EXPECT_CALL(stream_callbacks_, onData(BufferEqual(body.get()), false));
   TestHeaderMapImpl expected_trailers{{"some", "trailer"}};
   EXPECT_CALL(stream_callbacks_, onTrailers_(HeaderMapEqualRef(&expected_trailers)));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   AsyncClient::Stream* stream = client_.start(stream_callbacks_, AsyncClient::StreamOptions());
   stream->sendHeaders(headers, false);
@@ -671,7 +678,8 @@ TEST_F(AsyncClientImplTest, PoolFailure) {
   EXPECT_CALL(cm_.conn_pool_, newStream(_, _))
       .WillOnce(Invoke([&](StreamDecoder&,
                            ConnectionPool::Callbacks& callbacks) -> ConnectionPool::Cancellable* {
-        callbacks.onPoolFailure(ConnectionPool::PoolFailureReason::Overflow, nullptr);
+        callbacks.onPoolFailure(ConnectionPool::PoolFailureReason::Overflow, absl::string_view(),
+                                nullptr);
         return nullptr;
       }));
 
@@ -687,7 +695,8 @@ TEST_F(AsyncClientImplTest, PoolFailureWithBody) {
   EXPECT_CALL(cm_.conn_pool_, newStream(_, _))
       .WillOnce(Invoke([&](StreamDecoder&,
                            ConnectionPool::Callbacks& callbacks) -> ConnectionPool::Cancellable* {
-        callbacks.onPoolFailure(ConnectionPool::PoolFailureReason::Overflow, nullptr);
+        callbacks.onPoolFailure(ConnectionPool::PoolFailureReason::Overflow, absl::string_view(),
+                                nullptr);
         return nullptr;
       }));
 
@@ -717,6 +726,7 @@ TEST_F(AsyncClientImplTest, StreamTimeout) {
       {":status", "504"}, {"content-length", "24"}, {"content-type", "text/plain"}};
   EXPECT_CALL(stream_callbacks_, onHeaders_(HeaderMapEqualRef(&expected_timeout), false));
   EXPECT_CALL(stream_callbacks_, onData(_, true));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   AsyncClient::Stream* stream = client_.start(
       stream_callbacks_, AsyncClient::StreamOptions().setTimeout(std::chrono::milliseconds(40)));
@@ -750,6 +760,7 @@ TEST_F(AsyncClientImplTest, StreamTimeoutHeadReply) {
   TestHeaderMapImpl expected_timeout{
       {":status", "504"}, {"content-length", "24"}, {"content-type", "text/plain"}};
   EXPECT_CALL(stream_callbacks_, onHeaders_(HeaderMapEqualRef(&expected_timeout), true));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   AsyncClient::Stream* stream = client_.start(
       stream_callbacks_, AsyncClient::StreamOptions().setTimeout(std::chrono::milliseconds(40)));
@@ -857,6 +868,7 @@ TEST_F(AsyncClientImplTest, MultipleDataStream) {
 
   EXPECT_CALL(stream_encoder_, encodeData(BufferEqual(body2.get()), true));
   EXPECT_CALL(stream_callbacks_, onData(BufferEqual(body2.get()), true));
+  EXPECT_CALL(stream_callbacks_, onComplete());
 
   stream->sendData(*body2, true);
   response_decoder_->decodeData(*body2, true);
@@ -905,6 +917,62 @@ TEST_F(AsyncClientImplTest, RdsGettersTest) {
   EXPECT_CALL(stream_callbacks_, onReset());
 }
 
+TEST_F(AsyncClientImplTest, DumpState) {
+  TestHeaderMapImpl headers;
+  HttpTestUtility::addDefaultHeaders(headers);
+  AsyncClient::Stream* stream = client_.start(stream_callbacks_, AsyncClient::StreamOptions());
+  Http::StreamDecoderFilterCallbacks* filter_callbacks =
+      static_cast<Http::AsyncStreamImpl*>(stream);
+
+  std::stringstream out;
+  filter_callbacks->scope().dumpState(out);
+  std::string state = out.str();
+  EXPECT_THAT(state, testing::HasSubstr("protocol_: 1"));
+
+  EXPECT_CALL(stream_callbacks_, onReset());
+}
+
 } // namespace
+
+// Must not be in anonymous namespace for friend to work.
+class AsyncClientImplRouteTest : public testing::Test {
+public:
+  AsyncStreamImpl::RouteImpl route_impl{"foo", absl::nullopt};
+};
+
+// Test the extended fake route that AsyncClient uses.
+TEST_F(AsyncClientImplRouteTest, All) {
+  EXPECT_EQ(nullptr, route_impl.decorator());
+  EXPECT_EQ(nullptr, route_impl.tracingConfig());
+  EXPECT_EQ(nullptr, route_impl.perFilterConfig(""));
+  EXPECT_EQ(Code::InternalServerError, route_impl.routeEntry()->clusterNotFoundResponseCode());
+  EXPECT_EQ(nullptr, route_impl.routeEntry()->corsPolicy());
+  EXPECT_EQ(nullptr, route_impl.routeEntry()->hashPolicy());
+  EXPECT_EQ(1, route_impl.routeEntry()->hedgePolicy().initialRequests());
+  EXPECT_EQ(0, route_impl.routeEntry()->hedgePolicy().additionalRequestChance().numerator());
+  EXPECT_FALSE(route_impl.routeEntry()->hedgePolicy().hedgeOnPerTryTimeout());
+  EXPECT_EQ(nullptr, route_impl.routeEntry()->metadataMatchCriteria());
+  EXPECT_TRUE(route_impl.routeEntry()->rateLimitPolicy().empty());
+  EXPECT_TRUE(route_impl.routeEntry()->rateLimitPolicy().getApplicableRateLimit(0).empty());
+  EXPECT_EQ(absl::nullopt, route_impl.routeEntry()->idleTimeout());
+  EXPECT_EQ(absl::nullopt, route_impl.routeEntry()->grpcTimeoutOffset());
+  EXPECT_TRUE(route_impl.routeEntry()->opaqueConfig().empty());
+  EXPECT_TRUE(route_impl.routeEntry()->includeVirtualHostRateLimits());
+  EXPECT_TRUE(route_impl.routeEntry()->metadata().filter_metadata().empty());
+  EXPECT_EQ(nullptr,
+            route_impl.routeEntry()->typedMetadata().get<Config::TypedMetadata::Object>("bar"));
+  EXPECT_EQ(nullptr, route_impl.routeEntry()->perFilterConfig("bar"));
+  EXPECT_TRUE(route_impl.routeEntry()->upgradeMap().empty());
+  EXPECT_EQ(Router::InternalRedirectAction::PassThrough,
+            route_impl.routeEntry()->internalRedirectAction());
+  EXPECT_TRUE(route_impl.routeEntry()->shadowPolicy().runtimeKey().empty());
+  EXPECT_EQ(0, route_impl.routeEntry()->shadowPolicy().defaultValue().numerator());
+  EXPECT_TRUE(route_impl.routeEntry()->virtualHost().rateLimitPolicy().empty());
+  EXPECT_EQ(nullptr, route_impl.routeEntry()->virtualHost().corsPolicy());
+  EXPECT_EQ(nullptr, route_impl.routeEntry()->virtualHost().perFilterConfig("bar"));
+  EXPECT_FALSE(route_impl.routeEntry()->virtualHost().includeAttemptCount());
+  EXPECT_FALSE(route_impl.routeEntry()->virtualHost().routeConfig().usesVhds());
+}
+
 } // namespace Http
 } // namespace Envoy

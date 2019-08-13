@@ -5,8 +5,9 @@
 #include "extensions/filters/network/thrift_proxy/router/router_impl.h"
 
 #include "test/extensions/filters/network/thrift_proxy/utility.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 using testing::_;
 
@@ -15,13 +16,12 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace ThriftProxy {
 namespace Router {
-
 namespace {
 
 envoy::config::filter::network::thrift_proxy::v2alpha1::RouteConfiguration
 parseRouteConfigurationFromV2Yaml(const std::string& yaml) {
   envoy::config::filter::network::thrift_proxy::v2alpha1::RouteConfiguration route_config;
-  MessageUtil::loadFromYaml(yaml, route_config);
+  TestUtility::loadFromYaml(yaml, route_config);
   MessageUtil::validate(route_config);
   return route_config;
 }
@@ -848,6 +848,7 @@ routes:
     EXPECT_EQ(hv3, mmc[1]->value());
   }
 }
+
 } // namespace
 } // namespace Router
 } // namespace ThriftProxy

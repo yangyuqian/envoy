@@ -2,8 +2,9 @@
 
 #include "common/stream_info/filter_state_impl.h"
 
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
+
+#include "gtest/gtest.h"
 
 namespace Envoy {
 namespace StreamInfo {
@@ -13,7 +14,7 @@ class TestStoredTypeTracking : public FilterState::Object {
 public:
   TestStoredTypeTracking(int value, size_t* access_count, size_t* destruction_count)
       : value_(value), access_count_(access_count), destruction_count_(destruction_count) {}
-  ~TestStoredTypeTracking() {
+  ~TestStoredTypeTracking() override {
     if (destruction_count_) {
       ++*destruction_count_;
     }
@@ -43,7 +44,7 @@ private:
   int value_;
 };
 
-class FilterStateImplTest : public TestBase {
+class FilterStateImplTest : public testing::Test {
 public:
   FilterStateImplTest() { resetFilterState(); }
 

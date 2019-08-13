@@ -1,8 +1,10 @@
 #pragma once
 
+#include "envoy/api/io_error.h"
+#include "envoy/api/os_sys_calls.h"
 #include "envoy/network/io_handle.h"
 
-#include "common/common/assert.h"
+#include "common/common/logger.h"
 
 namespace Envoy {
 namespace Network {
@@ -10,25 +12,41 @@ namespace Network {
 /**
  * IoHandle derivative for sockets
  */
-class IoSocketHandle : public IoHandle {
+class IoSocketHandleImpl : public IoHandle, protected Logger::Loggable<Logger::Id::io> {
 public:
-  IoSocketHandle(int fd = -1) : fd_(fd) {}
+  explicit IoSocketHandleImpl(int fd = -1) : fd_(fd) {}
 
-  // TODO(sbelair2) Call close() in destructor
-  ~IoSocketHandle() { ASSERT(fd_ == -1); }
+  // Close underlying socket if close() hasn't been call yet.
+  ~IoSocketHandleImpl() override;
 
   // TODO(sbelair2)  To be removed when the fd is fully abstracted from clients.
   int fd() const override { return fd_; }
 
-  // Currently this close() is just for the IoHandle, and the close() system call
-  // happens elsewhere. In coming changes, the close() syscall will be made from the IoHandle.
-  // In particular, the close should also close the fd.
-  void close() override { fd_ = -1; }
+  Api::IoCallUint64Result close() override;
+
+  bool isOpen() const override;
+
+  Api::IoCallUint64Result readv(uint64_t max_length, Buffer::RawSlice* slices,
+                                uint64_t num_slice) override;
+
+  Api::IoCallUint64Result writev(const Buffer::RawSlice* slices, uint64_t num_slice) override;
+
+  Api::IoCallUint64Result sendto(const Buffer::RawSlice& slice, int flags,
+                                 const Address::Instance& address) override;
+
+  Api::IoCallUint64Result sendmsg(const Buffer::RawSlice* slices, uint64_t num_slice, int flags,
+                                  const Address::Ip* self_ip,
+                                  const Address::Instance& peer_address) override;
+
+  Api::IoCallUint64Result recvmsg(Buffer::RawSlice* slices, const uint64_t num_slice,
+                                  uint32_t self_port, RecvMsgOutput& output) override;
 
 private:
+  // Converts a SysCallSizeResult to IoCallUint64Result.
+  Api::IoCallUint64Result sysCallResultToIoCallResult(const Api::SysCallSizeResult& result);
+
   int fd_;
 };
-typedef std::unique_ptr<IoSocketHandle> IoSocketHandlePtr;
 
 } // namespace Network
 } // namespace Envoy

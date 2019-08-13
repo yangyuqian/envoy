@@ -4,6 +4,7 @@
 #include "common/buffer/buffer_impl.h"
 #include "common/grpc/codec.h"
 #include "common/http/header_map_impl.h"
+#include "common/http/utility.h"
 
 #include "extensions/filters/http/grpc_http1_reverse_bridge/filter.h"
 #include "extensions/filters/http/well_known_names.h"
@@ -12,10 +13,10 @@
 #include "test/mocks/runtime/mocks.h"
 #include "test/mocks/stats/mocks.h"
 #include "test/test_common/printers.h"
-#include "test/test_common/test_base.h"
 #include "test/test_common/utility.h"
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using Envoy::Http::HeaderValueOf;
 using testing::_;
@@ -26,8 +27,9 @@ namespace Envoy {
 namespace Extensions {
 namespace HttpFilters {
 namespace GrpcHttp1ReverseBridge {
+namespace {
 
-class ReverseBridgeTest : public TestBase {
+class ReverseBridgeTest : public testing::Test {
 protected:
   void initialize(bool withhold_grpc_headers = true) {
     filter_ = std::make_unique<Filter>("application/x-protobuf", withhold_grpc_headers);
@@ -43,7 +45,7 @@ protected:
 };
 
 // Verifies that an incoming request with too small a request body will immediately fail.
-TEST_F(ReverseBridgeTest, InvalidGrcpRequest) {
+TEST_F(ReverseBridgeTest, InvalidGrpcRequest) {
   initialize();
   decoder_callbacks_.is_grpc_request_ = true;
 
@@ -63,12 +65,16 @@ TEST_F(ReverseBridgeTest, InvalidGrcpRequest) {
     // We should remove the first five bytes.
     Envoy::Buffer::OwnedImpl buffer;
     buffer.add("abc", 3);
+    EXPECT_CALL(decoder_callbacks_, sendLocalReply(_, _, _, _, _));
     EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _)).WillOnce(Invoke([](auto& headers, auto) {
       EXPECT_THAT(headers, HeaderValueOf(Http::Headers::get().Status, "200"));
       EXPECT_THAT(headers, HeaderValueOf(Http::Headers::get().GrpcStatus, "2"));
-      EXPECT_THAT(headers, HeaderValueOf(Http::Headers::get().GrpcMessage, "invalid request body"));
+      EXPECT_THAT(headers,
+                  HeaderValueOf(Http::Headers::get().GrpcMessage,
+                                Http::Utility::PercentEncoding::encode("invalid request body")));
     }));
     EXPECT_EQ(Http::FilterDataStatus::StopIterationNoBuffer, filter_->decodeData(buffer, false));
+    EXPECT_EQ(decoder_callbacks_.details_, "grpc_bridge_data_too_small");
   }
 }
 
@@ -459,6 +465,9 @@ TEST_F(ReverseBridgeTest, GrpcRequestBadResponse) {
     buffer.add("abcdefgh", 8);
     EXPECT_EQ(Http::FilterDataStatus::Continue, filter_->decodeData(buffer, false));
     EXPECT_EQ("fgh", buffer.toString());
+    EXPECT_CALL(decoder_callbacks_, streamInfo());
+    EXPECT_CALL(decoder_callbacks_.stream_info_,
+                setResponseCodeDetails(absl::string_view("grpc_bridge_content_type_wrong")));
   }
 
   {
@@ -481,6 +490,8 @@ TEST_F(ReverseBridgeTest, GrpcRequestBadResponse) {
                                      "envoy reverse bridge: upstream responded with unsupported "
                                      "content-type application/json, status code 400"));
 }
+
+} // namespace
 } // namespace GrpcHttp1ReverseBridge
 } // namespace HttpFilters
 } // namespace Extensions
