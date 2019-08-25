@@ -2407,7 +2407,7 @@ createWasmInternal(absl::string_view vm_id, const envoy::config::wasm::v2::VmCon
   if (!wasm->initialize(code, vm_id, vm_config.allow_precompiled())) {
     throw WasmException(fmt::format("Failed to initialize WASM code from {}", path));
   }
-  Context* context;
+  Context*__attribute__((unused)) context;
   if (!root_context_for_testing) {
     context = wasm->start(root_id, vm_config.configuration());
   } else {
